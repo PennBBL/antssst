@@ -1,0 +1,133 @@
+#!/bin/bash
+FLYWHEEL_BASE=/flywheel/v0
+MANIFEST_FILE=$FLYWHEEL_BASE/manifest.json
+CONFIG_FILE=$FLYWHEEL_BASE/config.json
+ANALYSIS_ID=$(jq -r '.destination.id' $CONFIG_FILE)
+INPUT_DIR=$FLYWHEEL_BASE/input
+GEAR_OUTPUT_DIR=$FLYWHEEL_BASE/output
+QSIPREP_OUTPUT_DIR=$GEAR_OUTPUT_DIR/"$ANALYSIS_ID"
+WORKING_DIR=$GEAR_OUTPUT_DIR/"$ANALYSIS_ID"_work
+BIDS_DIR=$GEAR_OUTPUT_DIR/bids_dataset
+EXE_SCRIPT=$GEAR_OUTPUT_DIR/qsiprep_run.sh
+CONTAINER='[flywheel/qsiprep]'
+
+# CRITICAL: re-create the environment
+cat ${FLYWHEEL_BASE}/docker-env.sh
+source ${FLYWHEEL_BASE}/docker-env.sh
+
+function parse_config {
+
+  CONFIG_FILE=$FLYWHEEL_BASE/config.json
+  MANIFEST_FILE=$FLYWHEEL_BASE/manifest.json
+
+  if [[ -f $CONFIG_FILE ]]; then
+    echo "$(cat $CONFIG_FILE | jq -r '.config.'$1)"
+  else
+    CONFIG_FILE=$MANIFEST_FILE
+    echo "$(cat $MANIFEST_FILE | jq -r '.config.'$1'.default')"
+  fi
+}
+
+
+config_save_outputs="$(parse_config 'save_partial_outputs')"
+config_save_intermediate_work="$(parse_config 'save_intermediate_work')"
+config_intermediate_files="$(parse_config 'intermediate_files')"
+config_intermediate_folders="$(parse_config 'intermediate_folders')"
+
+echo -e "$CONTAINER BEGIN QSIPREP DOCKERFILE\n"
+cat ${FLYWHEEL_BASE}/*Dockerfile
+echo -e "$CONTAINER END QSIPREP DOCKERFILE \n"
+
+# Download BIDS data and write a command
+timeout 30m /usr/local/miniconda/bin/python /flywheel/v0/prepare_run.py
+
+if [[ ! -f $EXE_SCRIPT ]]; then
+  echo "$CONTAINER Unable to create QSIPrep run environment! Exiting"
+  exit 1
+fi
+
+# RUN QSIPREP
+time bash /flywheel/v0/output/qsiprep_run.sh
+
+QSIPREP_EXITSTATUS=$?
+
+rm -rf ${QSIPREP_OUTPUT_DIR}/bids_dataset
+
+if [[ $QSIPREP_EXITSTATUS == 0 ]] ; then
+
+  # Convert index to standalone zip archive
+  html_file=$(find "$QSIPREP_OUTPUT_DIR"/qsiprep/ -name "sub-*.html")
+  SUB_ID=$(basename "$html_file" .html)
+
+  if [[ -n "$html_file" ]]; then
+    echo "$CONTAINER  Converting output html report..."
+    output_html_file="$GEAR_OUTPUT_DIR"/`basename "$html_file" .html`_"$ANALYSIS_ID".html.zip
+    cd $(dirname $html_file)
+    cp "$html_file" index.html
+    zip -r -q "$output_html_file" \
+        index.html \
+        "$SUB_ID"/figures \
+        "$WORKING_DIR"/reportlets/qsiprep/"$SUB_ID" && \
+        rm index.html
+    echo "$CONTAINER  HTML report converted."
+  else
+    echo "$CONTAINER  no output html report found!"
+  fi
+
+  # Look for files/folders to preserve from the working DIRECTORY
+  work_file_zip="$GEAR_OUTPUT_DIR"/qsiprep_work_selected_"$SUB_ID"_"$ANALYSIS_ID".zip
+  if [[ -n "$config_intermediate_files" ]]; then
+    echo "$CONTAINER  Archiving selected intermediate files..."
+    cd "$WORKING_DIR"
+    for f in "$config_intermediate_files"; do
+      zip $work_file_zip `find . -type f -name "$f"`
+    done
+  fi
+
+  if [[ -n "$config_intermediate_folders" ]]; then
+    echo "$CONTAINER  Archiving selected intermediate folders..."
+    cd "$WORKING_DIR"
+    for f in $config_intermediate_folders; do
+      zip $work_file_zip `find . -type d -name "$f"`
+    done
+  fi
+
+  # Generate zipped output of qsiprep
+  cd "$GEAR_OUTPUT_DIR"
+  echo "$CONTAINER  generating zip archive from outputs..."
+  time zip -q -r "$GEAR_OUTPUT_DIR"/qsiprep_"$SUB_ID"_"$ANALYSIS_ID" $(basename "$QSIPREP_OUTPUT_DIR")
+
+  if [[ $config_save_intermediate_work == 'true' ]] ; then
+    echo "$CONTAINER  generating zip archive from intermediate work files..."
+    cd "$GEAR_OUTPUT_DIR"
+    time zip -q -r "$GEAR_OUTPUT_DIR"/qsiprep_work_"$SUB_ID"_"$ANALYSIS_ID" $(basename "$WORKING_DIR")
+  fi
+  chmod -R 777 $GEAR_OUTPUT_DIR
+
+elif [[ $config_save_outputs == 'true' ]] ; then
+  echo "$CONTAINER  Error occurred. Config 'save_outputs' set to true. Zipping up outputs."
+  cd "$GEAR_OUTPUT_DIR"
+  time zip -q -r "$GEAR_OUTPUT_DIR"/debug_qsiprep_"$ANALYSIS_ID"  $(basename "$QSIPREP_OUTPUT_DIR")
+  time zip -q -r "$GEAR_OUTPUT_DIR"/debug_qsiprep_work_"$ANALYSIS_ID" $(basename "$WORKING_DIR")
+  chmod -R 777 $GEAR_OUTPUT_DIR
+
+  # COPY ANALYSIS TO PROJECT LEVEL IF MULTI-SESSION
+  #   Use Python SDK to accomplish this task
+
+  /usr/local/miniconda/bin/python ${FLYWHEEL_BASE}/move_to_project.py
+  if [[ $? != 0 ]]; then
+    echo "$CONTAINER  Problem resolving multi-session structure! Exiting (1)"
+    exit 1
+  fi
+
+else
+  echo "$CONTAINER  Errors encountered during execution. Save outputs config not set. Cleaning up and exiting."
+fi
+
+# Clean up
+rm -rf "$WORKING_DIR"
+rm -rf "$QSIPREP_OUTPUT_DIR"
+
+echo -e "Wrote: `ls -lh $GEAR_OUTPUT_DIR`"
+
+exit $QSIPREP_EXITSTATUS
