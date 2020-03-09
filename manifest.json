@@ -28,12 +28,12 @@
 			"minimum": 2,
 			"maximum": 4
 		},
-		"OUTPREFIX": {
+		"out_prefix": {
 			"default": "sst_",
 			"description": "A prefix that is prepended to all output files.",
 			"type": "string"
 		},
-		"Modality": {
+		"modality": {
 			"default": "T1w",
 			"description": "The BIDS suffix that indicates that data type from which the SST will be made. CURRENTLY ONLY CONFIGURED FOR ONE DATA TYPE ACROSS MULTIPLE SESSIONS. [default='T1w']",
 			"type": "string",
@@ -41,7 +41,7 @@
 				"T2w",
 			],
 		},
-		"RigidBody": {
+		"rigid_body": {
 			"default": 1,
 			"description": "Do rigid-body registration of inputs before creating template. Useful when you do not have an initial template",
 			"type": "integer",
