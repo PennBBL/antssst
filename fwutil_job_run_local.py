@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 #
 # Given a Flywheel job id, this script will generate a local testing directory
-# within which you can run the job locally, using Docker, as it ran in Flywheel.
+# within which you can run the job locally, using Docker, as it would run on Flywheel.
 #
 # This code generates a directory structure that mimics exactly what the Gear would
 # get when running in Flywheel. Importantly, this code will generate a "config.json"

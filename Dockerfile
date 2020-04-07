@@ -43,7 +43,8 @@ RUN apt-get update && \
 
 ENV PERL5LIB=$MINC_LIB_DIR/perl5/5.8.5 \
     MNI_PERL5LIB=$MINC_LIB_DIR/perl5/5.8.5 \
-    PATH=$FREESURFER_HOME/bin:$FSFAST_HOME/bin:$FREESURFER_HOME/tktools:$MINC_BIN_DIR:$PATH
+    PATH=$MINC_BIN_DIR:$PATH #Should probably add ANTs here
+    #PATH=$FREESURFER_HOME/bin:$FSFAST_HOME/bin:$FREESURFER_HOME/tktools:$MINC_BIN_DIR:$PATH
 
 # Installing ANTs latest from source
 #ARG ANTS_SHA=e00e8164d7a92f048e5d06e388a15c1ee8e889c4

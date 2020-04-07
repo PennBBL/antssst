@@ -14,7 +14,7 @@ from glob import glob
 # logging stuff
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('qsiprep-gear')
-logger.info("=======: QSIPrep :=======")
+logger.info("=======: antssstbids :=======")
 
 
 # Gather variables that will be shared across functions
@@ -31,7 +31,7 @@ with flywheel.GearContext() as context:
     output_space = config.get('output_space', '').split()
     analysis_id = context.destination['id']
     gear_output_dir = PosixPath(context.output_dir)
-    qsiprep_script = gear_output_dir / "qsiprep_run.sh"
+    antssstbids_script = gear_output_dir / "antssstbids_run.sh"
     output_root = gear_output_dir / analysis_id
     working_dir = PosixPath(str(output_root.resolve()) + "_work")
     bids_dir = output_root
@@ -53,19 +53,19 @@ with flywheel.GearContext() as context:
     use_all_sessions = config.get('use_all_sessions', False)
 
     # output zips
-    html_zipfile = gear_output_dir / (analysis_id + "_qsiprep_html.zip")
-    derivatives_zipfile = gear_output_dir / (analysis_id + "_qsiprep_derivatives.zip")
-    debug_derivatives_zipfile = gear_output_dir / (
-        analysis_id + "_debug_qsiprep_derivatives.zip")
-    working_dir_zipfile = gear_output_dir / (analysis_id + "_qsiprep_workdir.zip")
-    errorlog_zipfile = gear_output_dir / (analysis_id + "_qsiprep_errorlog.zip")
+    #html_zipfile = gear_output_dir / (analysis_id + "_antssstbids_html.zip")
+    derivatives_zipfile = gear_output_dir / (analysis_id + "_antssstbids_derivatives.zip")
+    #debug_derivatives_zipfile = gear_output_dir / (
+    #    analysis_id + "_debug_antssstbids_derivatives.zip") # Probably won't exist
+    working_dir_zipfile = gear_output_dir / (analysis_id + "_antssstbids_workdir.zip")
+    errorlog_zipfile = gear_output_dir / (analysis_id + "_antssstbids_errorlog.zip")
 
 
-def write_qsiprep_command():
+def write_antssstbids_command():
     """Create a command script."""
     with flywheel.GearContext() as context:
         cmd = [
-            '/usr/local/miniconda/bin/qsiprep',
+            '/usr/local/miniconda/bin/antssstbids',
             str(bids_root),
             str(output_root),
             'participant',
@@ -185,11 +185,11 @@ def main():
         logger.warning("Critical error while trying to download BIDS data.")
         return 1
 
-    command_ok = write_qsiprep_command()
+    command_ok = write_antssstbids_command()
     sys.stdout.flush()
     sys.stderr.flush()
     if not command_ok:
-        logger.warning("Critical error while trying to write QSIPrep command.")
+        logger.warning("Critical error while trying to write antssstbids command.")
         return 1
 
     return 0

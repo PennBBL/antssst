@@ -21,7 +21,7 @@
 		}
 	},
 	"config": {
-		"ImageDimension": {
+		"image_dimension": {
 			"default": 3,
 			"description": "Dimensionality of the image. [default=3]",
 			"type": "integer",
@@ -48,15 +48,12 @@
 			"minimum": 0,
 			"maximum": 1
 		},
-		"ignore": {
-			"default": "",
-			"description": "Ignore selected aspects of the input dataset to disable corresponding parts of the workflow. Possible choices: fieldmaps [default='']",
-			"enum": [
-				"",
-				"fieldmaps"
-			],
-			"type": "string"
-		},
+
+
+
+
+
+
 		"save_intermediate_work": {
 			"default": false,
 			"description": "Zip and save working directory with intermediate files. [default=false]",
@@ -95,7 +92,7 @@
 			"type": "string"
 		},
 		"use_all_sessions": {
-			"default": false,
+			"default": true,
 			"description": "Use all sessions in this project for this subject",
 			"type": "boolean"
 	  }
