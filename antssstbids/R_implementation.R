@@ -31,17 +31,33 @@ if (length(raw_t1w_images < 2) { stop("You must have at least two T1w images", c
 
 ##### Load the images into R, naming images by session label #####
 
+seslabels <- rep(NA, length(raw_t1w_images))
+i=1
 for (t1w_nifti in raw_t1w_images) {
   seslabel <- strsplit(t1w_nifti, "/")[[1]][length(strsplit(t1w_nifti, "/")[[1]])]
   seslabel <- strsplit(strsplit(seslabel, "_")[[1]][2], "-")[[1]][2]
-  assign( , readNifti(raw_t1w_images[1]))
+  seslabels[i] <- seslabel
+  assign(seslabel, readNifti(raw_t1w_images[1]))
+  i=i+1
 }
+
+if (anyNA(seslabels)) { stop("One or more of your images failed to load") }
 
 
 ##### Process data #####
 
-# 1.) N4 bias field correction
+sst_pipeline <- function(t1w_image) {
+  # 1.) N4 bias field correction
 
+  # 2.) Multivariate template construction (call to system)
+
+  # #.) Write out processed images
+  #(Need to figure out nature of output directory on Flywheel)
+}
+
+
+
+apply
 
 
 
