@@ -34,7 +34,8 @@ subj="sub-100088"
 
 # Create output directory in same directory as BIDS input directory
 parentdir=paste(strsplit(bidsdir, "/")[[1]][1:(length(strsplit(bidsdir, "/")[[1]])-1)], collapse="/")
-system(paste0("mkdir ", parentdir, "/bids_out_directory/"))
+bidsoutdir=paste0(parentdir, "/bids_out_directory/")
+system(paste0("mkdir ", bidsoutdir))
 
 # Identify paths to T1w images and check that at least two are present
 raw_t1w_images <- system(paste0("find ", bidsdir, subj, " ", "-name ", "sub-*_ses-*_T1w.nii.gz"), intern=TRUE)
@@ -68,23 +69,35 @@ mclapply(seslabels, N4_newname)
 #### 2.) Write N4-corrected images to session directories and create
 ####     temporary csv of paths to these images
 
-for (n4corrected_image in paste0("N4corrected_", seslabels)) {
-  antsImageWrite(get(n4corrected_image),
-    file=paste0(bidsoutdir, )
+imageFileNames <- rep(NA, length(seslabels))
+i=1
+for (seslabel in seslabels) {
+  outdir=paste0(bidsoutdir, subj, "/ses-", seslabel, "/anat/")
+  system(paste0("mkdir -p ", bidsoutdir, subj, "/{ses-", seslabel, ",anat", "}"))
+  imageFileName=paste0(outdir, subj, "_ses-", seslabel, "_N4corrected_T1w.nii.gz")
+  antsImageWrite(get(paste0("N4corrected_", seslabel)),
+    file=imageFileName)
+  imageFileNames[i] <- imageFileName
+  i=i+1
 }
 
+imagePathsCsv = paste0(bidsoutdir, subj, "/N4CorrectedPaths.csv")
+write.csv(imageFileNames, file=imagePathsCsv, row.names=FALSE)
+
+
 #### 3.) Multivariate template construction (call to system)
-antsMultivariateTemplateConstruction_newname <- function(N4corrected_paths) [
+antsMultivariateTemplateConstruction_newname <- function(N4corrected_paths_csv) {
+  # TO DO: Change call to ANTs docker image
   system(paste0("antsMultivariateTemplateConstruction.sh
-    -d 3 -n 0 -o ", bids_out_directory, subj, "/", subj, "_SST_T1w.nii.gz ",
-    ))
+    -d 3 -n 0 -o -c 2 -j 2", bids_out_directory, subj, "/", subj, "_SST_T1w.nii.gz ",
+    N4corrected_paths_csv))
 
   # Move single subject templates to subject directories
 }
 
-N4corrected_paths <- paste0("N4corrected_", seslabels)
+N4corrected_paths_csv <- paste0("N4corrected_", seslabels)
 
-antsMultivariateTemplateConstruction_newname(N4corrected_images)
+antsMultivariateTemplateConstruction_newname(imagePathsCsv)
 
 #### 4.)
 
