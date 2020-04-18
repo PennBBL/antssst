@@ -5,6 +5,8 @@ docker run --rm -ti \
   -v ~/Documents/flywheel/antssstbids_fw_debug/<...>/config.json:/flywheel/v0/config.json \
   pennbbl/antssstbids:latest
 
+# TO DO:
+# 1) Need to create input and output directories in Dockerfile
 
 
   #docker run --rm -ti \
