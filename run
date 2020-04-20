@@ -8,7 +8,8 @@ GEAR_OUTPUT_DIR=$FLYWHEEL_BASE/output
 ANTSSSTBIDS_OUTPUT_DIR=$GEAR_OUTPUT_DIR/"$ANALYSIS_ID"
 WORKING_DIR=$GEAR_OUTPUT_DIR/"$ANALYSIS_ID"_work
 BIDS_DIR=$GEAR_OUTPUT_DIR/bids_dataset
-EXE_SCRIPT=$GEAR_OUTPUT_DIR/antssstbids_run.sh
+#EXE_SCRIPT=$GEAR_OUTPUT_DIR/antssstbids_run.sh
+EXE_SCRIPT=$GEAR_OUTPUT_DIR/pipeline.sh
 CONTAINER='[flywheel/antssstbbids]'
 
 # CRITICAL: re-create the environment
