@@ -8,7 +8,7 @@ GEAR_OUTPUT_DIR=$FLYWHEEL_BASE/output
 ANTSSSTBIDS_OUTPUT_DIR=$GEAR_OUTPUT_DIR/"$ANALYSIS_ID"
 WORKING_DIR=$GEAR_OUTPUT_DIR/"$ANALYSIS_ID"_work
 BIDS_DIR=$GEAR_OUTPUT_DIR/bids_dataset
-EXE_SCRIPT=$GEAR_OUTPUT_DIR/qsiprep_run.sh
+EXE_SCRIPT=$GEAR_OUTPUT_DIR/antssstbids_run.sh
 CONTAINER='[flywheel/antssstbbids]'
 
 # CRITICAL: re-create the environment
@@ -56,23 +56,23 @@ rm -rf ${ANTSSSTBIDS_OUTPUT_DIR}/bids_dataset
 if [[ $ANTSSSTBIDS_EXITSTATUS == 0 ]] ; then
 
   # Convert index to standalone zip archive
-  html_file=$(find "$ANTSSSTBIDS_OUTPUT_DIR"/antssstbids/ -name "sub-*.html")
-  SUB_ID=$(basename "$html_file" .html)
+  #html_file=$(find "$ANTSSSTBIDS_OUTPUT_DIR"/antssstbids/ -name "sub-*.html")
+  #SUB_ID=$(basename "$html_file" .html)
 
-  if [[ -n "$html_file" ]]; then #This whole section can probably be removed
-    echo "$CONTAINER  Converting output html report..."
-    output_html_file="$GEAR_OUTPUT_DIR"/`basename "$html_file" .html`_"$ANALYSIS_ID".html.zip
-    cd $(dirname $html_file)
-    cp "$html_file" index.html
-    zip -r -q "$output_html_file" \
-        index.html \
-        "$SUB_ID"/figures \
-        "$WORKING_DIR"/reportlets/antssstbids/"$SUB_ID" && \
-        rm index.html
-    echo "$CONTAINER  HTML report converted."
-  else
-    echo "$CONTAINER  no output html report found!"
-  fi
+  #if [[ -n "$html_file" ]]; then #This whole section can probably be removed
+  #  echo "$CONTAINER  Converting output html report..."
+  #  output_html_file="$GEAR_OUTPUT_DIR"/`basename "$html_file" .html`_"$ANALYSIS_ID".html.zip
+  #  cd $(dirname $html_file)
+  #  cp "$html_file" index.html
+  #  zip -r -q "$output_html_file" \
+  #      index.html \
+  #      "$SUB_ID"/figures \
+  #      "$WORKING_DIR"/reportlets/antssstbids/"$SUB_ID" && \
+  #      rm index.html
+  #  echo "$CONTAINER  HTML report converted."
+  #else
+  #  echo "$CONTAINER  no output html report found!"
+  #fi
 
   # Look for files/folders to preserve from the working DIRECTORY
   #work_file_zip="$GEAR_OUTPUT_DIR"/antssstbids_work_selected_"$SUB_ID"_"$ANALYSIS_ID".zip
@@ -97,11 +97,11 @@ if [[ $ANTSSSTBIDS_EXITSTATUS == 0 ]] ; then
   echo "$CONTAINER  generating zip archive from outputs..."
   time zip -q -r "$GEAR_OUTPUT_DIR"/antssstbids_"$SUB_ID"_"$ANALYSIS_ID" $(basename "$ANTSSSTBIDS_OUTPUT_DIR")
 
-  if [[ $config_save_intermediate_work == 'true' ]] ; then
-    echo "$CONTAINER  generating zip archive from intermediate work files..."
-    cd "$GEAR_OUTPUT_DIR"
-    time zip -q -r "$GEAR_OUTPUT_DIR"/antssstbids_work_"$SUB_ID"_"$ANALYSIS_ID" $(basename "$WORKING_DIR")
-  fi
+  #if [[ $config_save_intermediate_work == 'true' ]] ; then
+  #  echo "$CONTAINER  generating zip archive from intermediate work files..."
+  #  cd "$GEAR_OUTPUT_DIR"
+  #  time zip -q -r "$GEAR_OUTPUT_DIR"/antssstbids_work_"$SUB_ID"_"$ANALYSIS_ID" $(basename "$WORKING_DIR")
+  #fi
   chmod -R 777 $GEAR_OUTPUT_DIR
 
 elif [[ $config_save_outputs == 'true' ]] ; then
