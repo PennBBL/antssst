@@ -1,8 +1,8 @@
 docker run --rm -ti \
   --entrypoint=/bin/bash \
-  -v ~/Documents/flywheel/antssstbids_fw_debug/<...>/input:/flywheel/v0/input \
-  -v ~/Documents/flywheel/antssstbids_fw_debug/<...>/output:/flywheel/v0/output \
-  -v ~/Documents/flywheel/antssstbids_fw_debug/<...>/config.json:/flywheel/v0/config.json \
+  -v ~/Documents/flywheel/antssstbids_fw_debug/input:/flywheel/v0/input \
+  -v ~/Documents/flywheel/antssstbids_fw_debug/output:/flywheel/v0/output \
+  -v ~/Documents/flywheel/antssstbids_fw_debug/config.json:/flywheel/v0/config.json \
   pennbbl/antssstbids:latest
 
 # TO DO:

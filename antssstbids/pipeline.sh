@@ -1,23 +1,23 @@
 ### Pad image, construct template, and organize outputs
 ###
 ### Ellyn Butler
-### April 16, 2020 - April 17, 2020
+### April 16, 2020 - April 21, 2020
 
 ######## Interactive ANTs shell with bids directory ########
 # docker run -it -v /Users/butellyn/Documents/antssstbids/bids_directory/:/data antsx/ants
 # CREATE INPUT AND OUTPUT DIRECTORIES TO MOUNT BIDS DATA TO IN DOCKERFILE
 
 
-######## Parse arguments ########
-bidsInDir=#argument to container... "~/Documents/antssstbids/bids_directory"
-subj=#argument to container... sub-100088
+######## Find relevant files/paths ########
+
+bidsInDir=/flywheel/v0/input/bids_directory
+subj=`ls -d ${bidsInDir}/sub* | sed 's#.*/##'`
 t1wimages=`find ${bidsInDir}/${subj}/ses*/anat -name "*T1w.nii*"`
 sessions=`ls -d ${bidsInDir}/${subj}/ses* | sed 's#.*/##'`
 
 ######## Make output directory ########
 
-currentDir=`dirname ${bidsInDir}`
-bidsOutDir=${currentDir}/bids_out_directory/
+bidsOutDir=/flywheel/v0/output/bids_out_directory/
 mkdir ${bidsOutDir}
 mkdir ${bidsOutDir}/${subj}
 for ses in ${sessions}; do

@@ -43,36 +43,8 @@ RUN apt-get update && \
 
 ENV PERL5LIB=$MINC_LIB_DIR/perl5/5.8.5 \
     MNI_PERL5LIB=$MINC_LIB_DIR/perl5/5.8.5 \
-    PATH=$MINC_BIN_DIR:$PATH #Should probably add ANTs here
-    #PATH=$FREESURFER_HOME/bin:$FSFAST_HOME/bin:$FREESURFER_HOME/tktools:$MINC_BIN_DIR:$PATH
-
-# Installing ANTs latest from source
-#ARG ANTS_SHA=e00e8164d7a92f048e5d06e388a15c1ee8e889c4
-#ADD https://cmake.org/files/v3.11/cmake-3.11.4-Linux-x86_64.sh /cmake-3.11.4-Linux-x86_64.sh
-#ENV ANTSPATH="/opt/ants-latest/bin" \
-#    PATH="/opt/ants-latest/bin:$PATH" \
-#    LD_LIBRARY_PATH="/opt/ants-latest/lib:$LD_LIBRARY_PATH"
-#RUN mkdir /opt/cmake \
-  #&& sh /cmake-3.11.4-Linux-x86_64.sh --prefix=/opt/cmake --skip-license \
-  #&& ln -s /opt/cmake/bin/cmake /usr/local/bin/cmake \
-  #&& apt-get update -qq \
-    #&& mkdir /tmp/ants \
-    #&& cd /tmp \
-    #&& git clone https://github.com/ANTsX/ANTs.git \
-    #&& mv ANTs /tmp/ants/source \
-    #&& cd /tmp/ants/source \
-    #&& git checkout ${ANTS_SHA} \
-    #&& mkdir -p /tmp/ants/build \
-    #&& cd /tmp/ants/build \
-    #&& mkdir -p /opt/ants-latest \
-    #&& git config --global url."https://".insteadOf git:// \
-    #&& cmake -DBUILD_TESTING=OFF -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX=/opt/ants-latest /tmp/ants/source \
-    #&& make -j2 \
-    #&& cd ANTS-build \
-    #&& make install \
-    #&& rm -rf /tmp/ants \
-    #&& rm -rf /opt/cmake /usr/local/bin/cmake
-
+    PATH=$MINC_BIN_DIR:$PATH
+    
 # Create a shared $HOME directory
 RUN useradd -m -s /bin/bash -G users antssstbids
 WORKDIR /home/antssstbids

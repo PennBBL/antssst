@@ -2,11 +2,11 @@
 	"name": "antssstbids",
 	"label": "antssstbids: ANTs multivariate template construction for BIDS data",
 	"description": "Uses antsMultivariateTemplateConstruction.sh to create single subject templates for longitudinal data organized according to the BIDS specification",
-	"version": "_______",
+	"version": "latest",
   "custom": {
 		"gear-builder": {
 			"category": "analysis",
-			"image": "pennbbl/_______"
+			"image": "pennbbl/antssstbids"
 		},
     "flywheel":{"suite": "PennBBL"}
   },
@@ -21,18 +21,6 @@
 		}
 	},
 	"config": {
-		"image_dimension": {
-			"default": 3,
-			"description": "Dimensionality of the image. [default=3]",
-			"type": "integer",
-			"minimum": 2,
-			"maximum": 4
-		},
-		"out_prefix": {
-			"default": "sst_",
-			"description": "A prefix that is prepended to all output files.",
-			"type": "string"
-		},
 		"modality": {
 			"default": "T1w",
 			"description": "The BIDS suffix that indicates that data type from which the SST will be made. CURRENTLY ONLY CONFIGURED FOR ONE DATA TYPE ACROSS MULTIPLE SESSIONS. [default='T1w']",
@@ -41,55 +29,10 @@
 				"T2w",
 			],
 		},
-		"rigid_body": {
-			"default": 1,
-			"description": "Do rigid-body registration of inputs before creating template. Useful when you do not have an initial template",
-			"type": "integer",
-			"minimum": 0,
-			"maximum": 1
-		},
-
-
-
-
-
-
-		"save_intermediate_work": {
-			"default": false,
-			"description": "Zip and save working directory with intermediate files. [default=false]",
-			"type": "boolean"
-		},
-		"save_partial_outputs": {
-			"default": false,
-			"description": "Zip and save output directory contents on an algorithm failure. [default=false]",
-			"type": "boolean"
-		},
 		"skip_bids_validation":{
-			"default": false,
-			"description": "Don't check that the input data is BIDS-compliant. [default=false]",
+			"default": true,
+			"description": "Don't check that the input data is BIDS-compliant. [default=true]",
 			"type": "boolean"
-		},
-		"skull_strip_fixed_seed": {
-			"default": false,
-			"description": "do not use a random seed for skull-stripping - will ensure run-to-run replicability when used with –omp-nthreads 1 [ default = false ]",
-			"type": "boolean"
-		},
-		"skull_strip_template": {
-			"default": "OASIS",
-			"description": "Possible choices: OASIS, NKI. select ANTs skull-stripping template (default: OASIS))",
-			"enum": [
-				"NKI",
-				"OASIS"
-			],
-			"type": "string"
-		},
-		"template": {
-			"default": "MNI152NLin2009cAsym",
-			"description": "Volume template space (default: MNI152NLin2009cAsym). This is currently the only choice.",
-			"enum": [
-				"MNI152NLin2009cAsym"
-			],
-			"type": "string"
 		},
 		"use_all_sessions": {
 			"default": true,
