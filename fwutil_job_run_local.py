@@ -134,9 +134,9 @@ if __name__ == '__main__':
     else:
         api_key = sys.argv[1]
 
-    fw = flywheel.Flywheel(api_key)
+    fw = flywheel.Client(api_key)
     if fw.get_current_user().root:
-        fw = flywheel.Flywheel(api_key, root=True)
+        fw = flywheel.Client(api_key, root=True)
     else:
         raise ValueError('This process requires site-admin priviliges!')
 

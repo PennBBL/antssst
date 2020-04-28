@@ -10,7 +10,7 @@
 
 ######## Find relevant files/paths ########
 
-bidsInDir=/flywheel/v0/input/bids_directory
+bidsInDir=/flywheel/v0/input/bids_directory ### SHOULD BE FMRIPREP OUTPUT NOW
 subj=`ls -d ${bidsInDir}/sub* | sed 's#.*/##'`
 t1wimages=`find ${bidsInDir}/${subj}/ses*/anat -name "*T1w.nii*"`
 sessions=`ls -d ${bidsInDir}/${subj}/ses* | sed 's#.*/##'`
@@ -24,7 +24,13 @@ for ses in ${sessions}; do
   mkdir -p ${bidsOutDir}/${subj}/${ses}/anat;
 done
 
+######## Calculate Euler's Number ########
+# on bias-field corrected and skull-stripped image
+
+######## Calculate Euler's Number ########
+
 ######## Run Template Construction ########
+# On bias-field corrected, but not skull-stripped, image
 
 for image in ${t1wimages}; do echo "${image}" >> ${bidsOutDir}/tmp_subjlist.csv ; done
 

@@ -30,8 +30,8 @@ function parse_config {
 }
 
 
-config_save_outputs="$(parse_config 'save_partial_outputs')"
-config_save_intermediate_work="$(parse_config 'save_intermediate_work')"
+#config_save_outputs="$(parse_config 'save_partial_outputs')"
+#config_save_intermediate_work="$(parse_config 'save_intermediate_work')"
 #config_intermediate_files="$(parse_config 'intermediate_files')"
 #config_intermediate_folders="$(parse_config 'intermediate_folders')"
 
@@ -39,59 +39,69 @@ echo -e "$CONTAINER BEGIN ANTSSSTBIDS DOCKERFILE\n"
 cat ${FLYWHEEL_BASE}/*Dockerfile
 echo -e "$CONTAINER END ANTSSSTBIDS DOCKERFILE \n"
 
-# Download BIDS data and write a command
-timeout 30m /usr/local/miniconda/bin/python /flywheel/v0/prepare_run.py
 
-if [[ ! -f $EXE_SCRIPT ]]; then
-  echo "$CONTAINER Unable to create antssstbids run environment! Exiting"
-  exit 1
-fi
+# RUN
+#time bash /flywheel/v0/output/antssstbids_run.sh #Gets generated prepare_run
 
-# RUN QSIPREP
-time bash /flywheel/v0/output/antssstbids_run.sh
 
-ANTSSSTBIDS_EXITSTATUS=$?
+#############################################################
+##################### PROCESSING STEPS #####################
+#############################################################
 
-rm -rf ${ANTSSSTBIDS_OUTPUT_DIR}/bids_dataset
+####### fMRIPrep outputs that pass QA #######
+# QA: Prior manual + Euler-based inspection for unchecked images
+# Assume csv of form: bblid,seslabel,t1RawDataExclude,cnr_graycsflh,cnr_graycsfrh,
+# cnr_graywhitelh,cnr_graywhiterh,euler_lh,euler_rh
 
-if [[ $ANTSSSTBIDS_EXITSTATUS == 0 ]] ; then
 
-  # Convert index to standalone zip archive
-  #html_file=$(find "$ANTSSSTBIDS_OUTPUT_DIR"/antssstbids/ -name "sub-*.html")
-  #SUB_ID=$(basename "$html_file" .html)
+######## Find relevant files/paths ########
+InDir=/flywheel/v0/input/<...> ### SHOULD BE FMRIPREP OUTPUT NOW
+subj=`ls -d ${InDir}/sub* | sed 's#.*/##'`
+t1wimages=`find ${InDir}/${subj}/ses*/anat -name "*T1w.nii*"` ### NEED TO CHANGE TO FMRIPREP OUTPUT STRUCTURE
+sessions=`ls -d ${InDir}/${subj}/ses* | sed 's#.*/##'`
 
-  #if [[ -n "$html_file" ]]; then #This whole section can probably be removed
-  #  echo "$CONTAINER  Converting output html report..."
-  #  output_html_file="$GEAR_OUTPUT_DIR"/`basename "$html_file" .html`_"$ANALYSIS_ID".html.zip
-  #  cd $(dirname $html_file)
-  #  cp "$html_file" index.html
-  #  zip -r -q "$output_html_file" \
-  #      index.html \
-  #      "$SUB_ID"/figures \
-  #      "$WORKING_DIR"/reportlets/antssstbids/"$SUB_ID" && \
-  #      rm index.html
-  #  echo "$CONTAINER  HTML report converted."
-  #else
-  #  echo "$CONTAINER  no output html report found!"
-  #fi
+######## Make output directory ########
 
-  # Look for files/folders to preserve from the working DIRECTORY
-  #work_file_zip="$GEAR_OUTPUT_DIR"/antssstbids_work_selected_"$SUB_ID"_"$ANALYSIS_ID".zip
-  #if [[ -n "$config_intermediate_files" ]]; then
-  #  echo "$CONTAINER  Archiving selected intermediate files..."
-  #  cd "$WORKING_DIR"
-  #  for f in "$config_intermediate_files"; do
-  #    zip $work_file_zip `find . -type f -name "$f"`
-  #  done
-  #fi
+OutDir=/flywheel/v0/output/
+mkdir ${OutDir}/${subj}
+for ses in ${sessions}; do
+  mkdir -p ${OutDir}/${subj}/${ses}/anat;
+done
 
-  #if [[ -n "$config_intermediate_folders" ]]; then
-  #  echo "$CONTAINER  Archiving selected intermediate folders..."
-  #  cd "$WORKING_DIR"
-  #  for f in $config_intermediate_folders; do
-  #    zip $work_file_zip `find . -type d -name "$f"`
-  #  done
-  #fi
+######## Run Template Construction ########
+# On bias-field corrected, but not skull-stripped, image
+
+for image in ${t1wimages}; do echo "${image}" >> ${OutDir}/tmp_subjlist.csv ; done
+
+antsMultivariateTemplateConstruction.sh \ # Get rid of N4
+    -d 3 -o "${OutDir}/${subj}/" \
+    -c 2 -j 2 ${OutDir}/tmp_subjlist.csv
+
+######## Rename files as appropriate ########
+
+for ses in ${sessions} ; do
+  mv ${OutDir}/${subj}/*_${ses}_* ${OutDir}/${subj}/${ses}/anat;
+done
+
+mkdir ${OutDir}/${subj}/scripts
+mv ${OutDir}/${subj}/*.sh ${OutDir}/${subj}/scripts
+mv ${OutDir}/${subj}/template0.nii.gz ${OutDir}/${subj}/${subj}_template0.nii.gz
+mv ${OutDir}/${subj}/templatewarplog.txt ${OutDir}/${subj}/${subj}_templatewarplog.txt
+mv ${OutDir}/${subj}/template0Affine.txt ${OutDir}/${subj}/${subj}_template0Affine.txt
+mv ${OutDir}/${subj}/template0warp.nii.gz ${OutDir}/${subj}/${subj}_template0warp.nii.gz
+
+
+######## Remove unnecessary files ########
+
+rm ${OutDir}/tmp_subjlist.csv
+
+
+
+#############################################################
+#############################################################
+#############################################################
+
+if [[ $ANTSSSTBIDS_EXITSTATUS == 0 ]] ; then ### Some other check of outputs
 
   # Generate zipped output of antssstbids
   cd "$GEAR_OUTPUT_DIR"

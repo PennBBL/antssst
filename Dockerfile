@@ -5,9 +5,6 @@ FROM antsx/ants:latest
 MAINTAINER Ellyn Butler <ellyn.butler@pennmedicine.upenn.edu>
 ENV ANTs_VERSION latest
 
-# Use Ubuntu 16.04 LTS
-FROM nvidia/cuda:9.1-runtime-ubuntu16.04
-
 # Prepare environment
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -36,27 +33,12 @@ RUN apt-get update && \
                     imagemagick \
                     software-properties-common \
                     git && \
-    curl -sL https://deb.nodesource.com/setup_10.x | bash - && \
-    apt-get install -y --no-install-recommends \
-      nodejs && \
     apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-ENV PERL5LIB=$MINC_LIB_DIR/perl5/5.8.5 \
-    MNI_PERL5LIB=$MINC_LIB_DIR/perl5/5.8.5 \
-    PATH=$MINC_BIN_DIR:$PATH
-    
 # Create a shared $HOME directory
 RUN useradd -m -s /bin/bash -G users antssstbids
 WORKDIR /home/antssstbids
 ENV HOME="/home/antssstbids"
-
-# Installing SVGO
-RUN curl -sL https://deb.nodesource.com/setup_10.x | bash -
-RUN apt-get install -y nodejs
-RUN npm install -g svgo
-
-# Installing bids-validator
-RUN npm install -g bids-validator@1.2.3
 
 # Installing and setting up miniconda
 RUN curl -sSLO https://repo.continuum.io/miniconda/Miniconda3-4.5.12-Linux-x86_64.sh && \
