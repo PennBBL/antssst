@@ -12,14 +12,14 @@
 
 
 ######## Find relevant files/paths ########
-InDir=/flywheel/v0/input/<...> ### SHOULD BE FMRIPREP OUTPUT NOW
-subj=`ls -d ${InDir}/sub* | sed 's#.*/##'`
-t1wimages=`find ${InDir}/${subj}/ses*/anat -name "*T1w.nii*"` ### NEED TO CHANGE TO FMRIPREP OUTPUT STRUCTURE
+InDir=/data
+subj=`ls ${InDir}/ | sed 's#.*/##'`
+t1wimages=`find ${InDir}/${subj}/ses*/fmriprep/${subj}/anat -name "${subj}_desc-preproc_T1w.nii.gz"`
 sessions=`ls -d ${InDir}/${subj}/ses* | sed 's#.*/##'`
 
 ######## Make output directory ########
 
-OutDir=/flywheel/v0/output/
+OutDir=/home
 mkdir ${OutDir}/${subj}
 for ses in ${sessions}; do
   mkdir -p ${OutDir}/${subj}/${ses}/anat;
@@ -30,9 +30,7 @@ done
 
 for image in ${t1wimages}; do echo "${image}" >> ${OutDir}/tmp_subjlist.csv ; done
 
-antsMultivariateTemplateConstruction.sh \ # Get rid of N4
-    -d 3 -o "${OutDir}/${subj}/" \
-    -c 2 -j 2 ${OutDir}/tmp_subjlist.csv
+antsMultivariateTemplateConstruction.sh -d 3 -o "${OutDir}/${subj}/" -n 0 -c 2 -j 2 ${OutDir}/tmp_subjlist.csv
 
 ######## Rename files as appropriate ########
 

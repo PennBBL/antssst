@@ -24,11 +24,6 @@ for ses in ${sessions}; do
   mkdir -p ${bidsOutDir}/${subj}/${ses}/anat;
 done
 
-######## Calculate Euler's Number ########
-# on bias-field corrected and skull-stripped image
-
-######## Calculate Euler's Number ########
-
 ######## Run Template Construction ########
 # On bias-field corrected, but not skull-stripped, image
 
