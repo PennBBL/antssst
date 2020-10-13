@@ -9,20 +9,27 @@
 # QA: Prior manual + Euler-based inspection for unchecked images
 # Assume csv of form: bblid,seslabel,t1RawDataExclude,cnr_graycsflh,cnr_graycsfrh,
 # cnr_graywhitelh,cnr_graywhiterh,euler_lh,euler_rh
-
+# To be run on the subject level
 
 ######## Find relevant files/paths ########
 InDir=/data
-subj=`ls ${InDir}/ | sed 's#.*/##'`
-t1wimages=`find ${InDir}/${subj}/ses*/fmriprep/${subj}/anat -name "${subj}_desc-preproc_T1w.nii.gz"`
-sessions=`ls -d ${InDir}/${subj}/ses* | sed 's#.*/##'`
+
+sessions=`ls -d ${InDir}/ses* | sed 's#.*/##'`
+ases=`echo ${sessions} | cut -d ' ' -f 1`
+subj=`find ${InDir}/${ases}/ -name "*${ases}.html" | cut -d '/' -f 4 | cut -d '_' -f 1`
+
+t1wimages=""
+for ses in $sessions; do
+  t1wimage=`find ${InDir}/${ses}/anat -name "${subj}_${ses}_desc-preproc_T1w.nii.gz"`;
+  t1wimages="${t1wimages} ${t1wimage}";
+done
 
 ######## Make output directory ########
 
 OutDir=/home
 mkdir ${OutDir}/${subj}
 for ses in ${sessions}; do
-  mkdir -p ${OutDir}/${subj}/${ses}/anat;
+  mkdir -p ${OutDir}/${subj}/${ses};
 done
 
 ######## Run Template Construction ########
@@ -35,11 +42,11 @@ antsMultivariateTemplateConstruction.sh -d 3 -o "${OutDir}/${subj}/" -n 0 -c 2 -
 ######## Rename files as appropriate ########
 
 for ses in ${sessions} ; do
-  mv ${OutDir}/${subj}/*_${ses}_* ${OutDir}/${subj}/${ses}/anat;
+  mv ${OutDir}/${subj}/*_${ses}_* ${OutDir}/${subj}/${ses};
 done
 
-mkdir ${OutDir}/${subj}/scripts
-mv ${OutDir}/${subj}/*.sh ${OutDir}/${subj}/scripts
+#mkdir ${OutDir}/${subj}/scripts
+#mv ${OutDir}/${subj}/*.sh ${OutDir}/${subj}/scripts
 mv ${OutDir}/${subj}/template0.nii.gz ${OutDir}/${subj}/${subj}_template0.nii.gz
 mv ${OutDir}/${subj}/templatewarplog.txt ${OutDir}/${subj}/${subj}_templatewarplog.txt
 mv ${OutDir}/${subj}/template0Affine.txt ${OutDir}/${subj}/${subj}_template0Affine.txt
