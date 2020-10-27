@@ -12,9 +12,10 @@
 # To be run on the subject level
 
 ######## Find relevant files/paths ########
-InDir=/data
+InDir=/data/input
 
-sessions=`ls -d ${InDir}/ses* | sed 's#.*/##'`
+#sessions=`ls -d ${InDir}/ses* | sed 's#.*/##'`
+sessions="$@" #Make sure command line passes without "ses-" part
 ases=`echo ${sessions} | cut -d ' ' -f 1`
 subj=`find ${InDir}/${ases}/ -name "*${ases}.html" | cut -d '/' -f 4 | cut -d '_' -f 1`
 
@@ -26,7 +27,7 @@ done
 
 ######## Make output directory ########
 
-OutDir=/home
+OutDir=/data/output
 mkdir ${OutDir}/${subj}
 for ses in ${sessions}; do
   mkdir -p ${OutDir}/${subj}/${ses};
