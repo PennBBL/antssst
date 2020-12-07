@@ -37,7 +37,7 @@ done
 
 for image in ${t1wimages}; do echo "${image}" >> ${OutDir}/tmp_subjlist.csv ; done
 
-antsMultivariateTemplateConstruction.sh -d 3 -o "${OutDir}/" -n 0 -c 2 -j 2 ${OutDir}/tmp_subjlist.csv
+antsMultivariateTemplateConstruction.sh -d 3 -o "${OutDir}/" -n 0 -i 8 -y 0 -c 2 -j 2 ${OutDir}/tmp_subjlist.csv
 
 ######## Rename files as appropriate ########
 
