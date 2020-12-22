@@ -47,7 +47,7 @@ done
 # On bias-field corrected, but not skull-stripped, image
 for image in ${t1wpsm}; do echo "${image}" >> ${OutDir}/tmp_subjlist.csv ; done
 
-antsMultivariateTemplateConstruction.sh -d 3 -o "${OutDir}/" -r 1 -n 0 -m 40x60x30 -i 5 -y 0 -c 2 -j 2 ${OutDir}/tmp_subjlist.csv
+/scripts/antsMultivariateTemplateConstruction.sh -d 3 -o "${OutDir}/" -r 1 -n 0 -m 40x60x30 -i 5 -y 0 -c 2 -j 2 ${OutDir}/tmp_subjlist.csv
 
 ######## Rename files as appropriate ########
 for ses in ${sessions} ; do

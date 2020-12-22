@@ -13,6 +13,7 @@ RUN mkdir /data/input/fmriprep
 RUN mkdir /data/output
 RUN mkdir /scripts
 COPY run.sh /scripts/run.sh
+COPY antsMultivariateTemplateConstruction.sh /scripts/antsMultivariateTemplateConstruction.sh
 RUN chmod +x /scripts/*
 
 # Set the entrypoint
