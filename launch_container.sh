@@ -10,8 +10,8 @@
 # ANTsSST
 docker run --rm -ti --entrypoint="/bin/sh" \
   -v /Users/butellyn/Documents/ExtraLong/data/freesurferCrossSectional/fmriprep/sub-100088:/data/input \
-  -v /Users/butellyn/Documents/ExtraLong/data/singleSubjectTemplates/antssst4:/data/output \
-  pennbbl/antssst:0.0.4 /scripts/run.sh ses-CONTE1 ses-NODRA1 ses-ONM1 ses-PNC1 ses-PNC2
+  -v /Users/butellyn/Documents/ExtraLong/data/singleSubjectTemplates/antssst5:/data/output \
+  pennbbl/antssst /scripts/run.sh ses-CONTE1 ses-NODRA1 ses-ONM1 ses-PNC1 ses-PNC2
 
 # Singularity
 singularity exec --writable-tmpfs --cleanenv \

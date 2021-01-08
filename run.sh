@@ -27,19 +27,19 @@ done
 for image in ${t1wimages}; do
   ses=`echo $image | cut -d "/" -f 4`;
   imagename=`echo $image | cut -d "/" -f 6`;
-  imagename=$(echo "$imagename" | sed "s/T1w/T1w_padscalemasked/");
+  imagename=$(echo "$imagename" | sed "s/T1w/T1w_padscale/");
   mask=${InDir}/${ses}/anat/${subj}_${ses}_desc-brain_mask.nii.gz;
   # Mask
-  ImageMath 3 ${OutDir}/${ses}/${imagename} m ${image} ${mask};
+  #ImageMath 3 ${OutDir}/${ses}/${imagename} m ${image} ${mask};
   # Pad
-  ImageMath 3 ${OutDir}/${ses}/${imagename} PadImage ${OutDir}/${ses}/${imagename} 25;
+  ImageMath 3 ${OutDir}/${ses}/${imagename} PadImage ${image} 25;
   # Scale
   ImageMath 3 ${OutDir}/${ses}/${imagename} Normalize ${OutDir}/${ses}/${imagename} 1;
 done
 
 t1wpsm=""
 for ses in $sessions; do
-  t1wimage=`find ${OutDir}/${ses} -name "${subj}_${ses}_desc-preproc_T1w_padscalemasked.nii.gz"`;
+  t1wimage=`find ${OutDir}/${ses} -name "${subj}_${ses}_desc-preproc_T1w_padscale.nii.gz"`;
   t1wpsm="${t1wpsm} ${t1wimage}";
 done
 
@@ -47,7 +47,7 @@ done
 # On bias-field corrected, but not skull-stripped, image
 for image in ${t1wpsm}; do echo "${image}" >> ${OutDir}/tmp_subjlist.csv ; done
 
-/scripts/antsMultivariateTemplateConstruction.sh -d 3 -o "${OutDir}/" -r 1 -n 0 -m 40x60x30 -i 5 -y 0 -c 2 -j 2 ${OutDir}/tmp_subjlist.csv
+/scripts/antsMultivariateTemplateConstruction.sh -d 3 -o "${OutDir}/" -n 0 -m 40x60x30 -i 5 -c 0 -z ${image} ${OutDir}/tmp_subjlist.csv
 
 ######## Rename files as appropriate ########
 for ses in ${sessions} ; do
