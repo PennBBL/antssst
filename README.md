@@ -1,6 +1,7 @@
 # ANTsSST
 
-ANTsSST uses antsMultivariateTemplateConstruction.sh to create single subject
+ANTsSST uses [antsMultivariateTemplateConstruction.sh](https://github.com/ANTsX/ANTs/blob/master/Scripts/antsMultivariateTemplateConstruction.sh)
+to create single subject
 templates (SSTs) for longitudinal data organized according to the BIDS specification.
 ANTsSST requires that fMRIPrep has been run on the T1w images (Note: Only tested on v20.0.5).
 
