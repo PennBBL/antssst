@@ -85,7 +85,12 @@ from the construction of the single subject template (`antssstExclude`).
 ## Notes
 1. For details on how ANTsSST was utilized for the ExtraLong project (all
 longitudinal T1w data in the BBL), see [this wiki](https://github.com/PennBBL/ExtraLong/wiki).
-2. Future directions: Since the ENTRYPOINT variable is defined
+
+## Future Directions
+1. Since the ENTRYPOINT variable is defined
 as `/scripts/run.sh` in the Dockerfile, there is almost surely a way to avoid
 `--entrypoint="/bin/sh"` in the Docker call and `exec` in the Singularity call,
 but the parsing of the sessions may need to change.
+2. Set home directory in Dockerfile.
+3. Perform a second round of N4 on the t1-weighted images (first round currently
+  being performed by fMRIPrep, but does not appear to fully work).
