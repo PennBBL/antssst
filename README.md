@@ -94,3 +94,4 @@ but the parsing of the sessions may need to change.
 2. Set home directory in Dockerfile.
 3. Perform a second round of N4 on the t1-weighted images (first round currently
   being performed by fMRIPrep, but does not appear to fully work).
+4. Fix ANTs seed.
