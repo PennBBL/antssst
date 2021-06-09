@@ -1,7 +1,13 @@
-## Examples of Docker and Singularity commands to launch the ANTsSST 
-## container with the correct binding points.
+# This script launches the ANTS container with the correct binding points
+# The home directory will serve as the output directory
 
-# Docker
+#docker run --rm -ti --entrypoint=/bin/bash \
+#  -v /Users/butellyn/Documents/ExtraLong/data/freesurferCrossSectional/fmriprep/sub-100088:/data \
+#  -v /Users/butellyn/Documents/ExtraLong/data/singleSubjectTemplates:/home \
+#  antsx/ants
+
+
+# ANTsSST
 docker run --rm -ti --entrypoint="/bin/sh" \
   -v /Users/butellyn/Documents/ExtraLong/data/freesurferCrossSectional/fmriprep/sub-100088:/data/input \
   -v /Users/butellyn/Documents/ExtraLong/data/singleSubjectTemplates/antssst5/sub-100088:/data/output \
@@ -11,4 +17,4 @@ docker run --rm -ti --entrypoint="/bin/sh" \
 singularity exec --writable-tmpfs --cleanenv \
   -B /project/ExtraLong/data/freesurferCrossSectional/fmriprep/sub-10410:/data/input \
   -B /project/ExtraLong/data/singleSubjectTemplates/antssst/sub-10410:/data/output \
-  /project/ExtraLong/images/antssst_0.0.7.sif /scripts/run.sh ses-FNDM11 ses-FNDM21
+  /project/ExtraLong/images/antssst_0.0.2.sif /scripts/run.sh ses-FNDM11 ses-FNDM21
