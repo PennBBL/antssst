@@ -12,8 +12,11 @@ RUN mkdir /data/input/antssst
 RUN mkdir /data/input/fmriprep
 RUN mkdir /data/output
 RUN mkdir /scripts
+
 COPY run.sh /scripts/run.sh
 COPY antsMultivariateTemplateConstruction.sh /scripts/antsMultivariateTemplateConstruction.sh
+COPY OASIS_PAC /data/input/OASIS_PAC
+
 RUN chmod +x /scripts/*
 
 # Set the entrypoint
