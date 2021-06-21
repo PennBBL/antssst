@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1
+
 InDir=/data/input
 OutDir=/data/output
 
@@ -12,12 +14,12 @@ sessions="$@"
 
 # Get subject label.
 ses=`echo ${sessions} | cut -d ' ' -f 1`
-subj=`find ${InDir}/${ases}/ -name "*${ses}.html" | cut -d '/' -f 5 | cut -d '_' -f 1`
+sub=`find ${InDir}/${ases}/ -name "*${ses}.html" | cut -d '/' -f 5 | cut -d '_' -f 1`
 
 # Get T1w image per session from input dir.
 t1wimages=""
 for ses in $sessions; do
-  t1wimage=`find ${InDir}/${ses}/anat -name "${subj}_${ses}_desc-preproc_T1w.nii.gz"`;
+  t1wimage=`find ${InDir}/${ses}/anat -name "${sub}_${ses}_desc-preproc_T1w.nii.gz"`;
   t1wimages="${t1wimages} ${t1wimage}";
 done
 
@@ -38,7 +40,7 @@ for image in ${t1wimages}; do
   imagename=$(echo "$imagename" | sed "s/T1w/T1w_padscale/");
   
   # Mask
-  #mask=${InDir}/${ses}/anat/${subj}_${ses}_desc-brain_mask.nii.gz;
+  #mask=${InDir}/${ses}/anat/${sub}_${ses}_desc-brain_mask.nii.gz;
   #ImageMath 3 ${OutDir}/${ses}/${imagename} m ${image} ${mask};
 
   # Pad
@@ -51,7 +53,7 @@ done
 
 t1wpsm=""
 for ses in $sessions; do
-  t1wimage=`find ${OutDir}/${ses} -name "${subj}_${ses}_desc-preproc_T1w_padscale.nii.gz"`;
+  t1wimage=`find ${OutDir}/${ses} -name "${sub}_${ses}_desc-preproc_T1w_padscale.nii.gz"`;
   t1wpsm="${t1wpsm} ${t1wimage}";
 done
 
@@ -67,9 +69,68 @@ for image in ${t1wpsm}; do echo "${image}" >> ${OutDir}/tmp_subjlist.csv ; done
 /scripts/antsMultivariateTemplateConstruction.sh -d 3 -o "${OutDir}/" -n 0 \
   -m 40x60x30 -i 5 -c 0 -z ${image} ${OutDir}/tmp_subjlist.csv
 
+## NEW! TODO: Test out running JLF on SST's! Then convert to session space.
+# i.e. instead of JLF on GT then transforming back to session space.
+###############################################################################
+####################  4. Run joint label fusion on SSTs.        ###############
+####################     Transform labels to Native T1w space.  ###############
+###############################################################################
+
+SST=${OutDir}/${sub}_template0.nii.gz
+BrainExtractionTemplate=${InDir}/OASIS_PAC/T_template0.nii.gz
+BrainExtractionProbMask=${InDir}/OASIS_PAC/T_template0_BrainCerebellumProbabilityMask.nii.gz
+
+# Skull-strip the SST
+antsBrainExtraction.sh -d 3 -a ${SST} \
+  -e ${BrainExtractionTemplate} \
+  -m ${BrainExtractionProbMask} \
+  -o ${OutDir}/${sub}_
+
+# Locate atlases and labels
+atlast1w=`find ${InDir}/mindboggleVsBrainCOLOR_Atlases/mindboggleHeads/* -name "OASIS-TRT*.nii.gz"`;
+
+# Create atlases part of antsJFL call
+atlas_args=""
+for atlas in ${atlast1w}; do
+
+  # Find corresponding label image
+  label=`basename ${atlas}`
+  label=$(echo "${label}" | sed "s/.nii.gz/_DKT31.nii.gz/")
+  label=${InDir}/mindboggleVsBrainCOLOR_Atlases/mindboggleLabels/${label}
+  
+  # Append atlas and label to existing arg string
+  atlas_args=${atlas_args}"-g ${atlas} -l ${label} ";
+done
+
+# Run JLF to map DKT labels onto the single-subject templates
+antsJointLabelFusion.sh -d 3 -t ${SST} \
+  -o ${OutDir}/${sub}_malf -c 2 -j 4 -k 1 -q 1 \
+  -x ${OutDir}/${sub}_BrainExtractionMask.nii.gz \
+  -p ${OutDir}/malfPosteriors%04d.nii.gz ${atlas_args}
+
+# 5/16/2021: 
+# Warp DKT labels from the SST space to Native T1w space
+RefImg=${OutDir}/${ses}/${sub}_${ses}_desc-preproc_T1w_padscale.nii.gz
+SSTLabels=${OutDir}/${sub}_malfLabels.nii.gz
+SST_to_Native_warp=`find ${OutDir}/${ses} -name "*padscale*InverseWarp.nii.gz"`
+Native_to_SST_affine=`find ${OutDir}/${ses} -name "*Affine.txt"`
+
+# Transform labels from group template to t1w space
+# QUESTION: How do you pick -n interpolation type?
+# Multilabel for labeled image to maintain integer labels!!
+antsApplyTransforms \
+  -d 3 -e 0 -n Multilabel \
+  -i ${SSTLabels} \
+  -o [${OutDir}/${ses}/${sub}_${ses}_DKT.nii.gz, 0] \
+  -r ${RefImg} \
+  -t [${Native_to_SST_affine}, 1] \
+  -t ${SST_to_Native_warp} 
+
+# To finish DKT labeling, in antslongct use cortical thickness mask to generate
+# DKTIntersection image.
 
 ###############################################################################
-#######################  4. Rename files and cleanup.  ########################
+#######################  5. Rename files and cleanup.  ########################
 ###############################################################################
 
 # Move session-level output into individual session output dirs.
@@ -77,11 +138,20 @@ for ses in ${sessions} ; do
   mv ${OutDir}/*_${ses}_* ${OutDir}/${ses};
 done
 
+# Move jobscripts into jobs sub dir
+mkdir ${OutDir}/jobs
+mv ${OutDir}/job*.sh ${OutDir}/jobs
+
 # Rename SST and transform files to include subject label.
-mv ${OutDir}/template0.nii.gz ${OutDir}/${subj}_template0.nii.gz
-mv ${OutDir}/templatewarplog.txt ${OutDir}/${subj}_templatewarplog.txt
-mv ${OutDir}/template0Affine.txt ${OutDir}/${subj}_template0Affine.txt
-mv ${OutDir}/template0warp.nii.gz ${OutDir}/${subj}_template0warp.nii.gz
+mv ${OutDir}/template0.nii.gz ${OutDir}/${sub}_template0.nii.gz
+mv ${OutDir}/templatewarplog.txt ${OutDir}/${sub}_templatewarplog.txt
+mv ${OutDir}/template0Affine.txt ${OutDir}/${sub}_template0Affine.txt
+mv ${OutDir}/template0warp.nii.gz ${OutDir}/${sub}_template0warp.nii.gz
+
+# Make subdir for joint label fusion output
+mkdir ${OutDir}/malf
+mv ${OutDir}/malfPost* ${OutDir}/malf
+mv ${OutDir}/*malf*.txt ${OutDir}/malf
 
 # Remove tmp files.
 rm ${OutDir}/tmp_subjlist.csv
