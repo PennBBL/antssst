@@ -5,5 +5,3 @@
 *.csv
 *data*
 *DS_Store*
-launch_docker.sh
-launch_singularity.sh
