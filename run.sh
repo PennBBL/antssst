@@ -167,20 +167,25 @@ antsBrainExtraction.sh -d 3 -a ${SST} \
   -m ${BrainExtractionProbMask} \
   -o ${OutDir}/${sub}_
 
-# Locate atlases and labels
-atlasT1w=`find ${InDir}/mindboggleVsBrainCOLOR_Atlases/mindboggleHeads/* -name "OASIS-TRT*.nii.gz"`;
-
-# Create atlases part of antsJFL call
+# Construct atlas arguments for call to antsJointLabelFusion.sh
 atlas_args=""
-for atlas in ${atlasT1w}; do
 
-  # Find corresponding label image
-  label=`basename ${atlas}`
-  label=$(echo "${label}" | sed "s/.nii.gz/_DKT31.nii.gz/")
-  label=${InDir}/mindboggleVsBrainCOLOR_Atlases/mindboggleLabels/${label}
+# Loop through each atlas dir in OASIS dir
+find ${InDir}/OASIS-TRT-20_volumes/OASIS-TRT* -type d | while read atlas_dir; do
+  # Get T1w brain
+  brain="${atlas_dir}/t1weighted_brain.nii.gz"
   
-  # Append atlas and label to existing arg string
-  atlas_args=${atlas_args}"-g ${atlas} -l ${label} ";
+  # Get corresponding labels if using all labels (cort, wm, non-cort).
+  if [[ ${useAllLabels} ]]; then
+    labels=${atlas_dir}/labels.DKT31.manual+aseg.nii.gz;
+  
+  # Get corresponding labels if using only cortical labels. (Default)
+  else
+    labels=${atlas_dir}/labels.DKT31.manual.nii.gz;
+  fi
+
+  # Append current atlas and label to argument string
+  atlas_args=${atlas_args}"-g ${brain} -l ${labels} ";
 done
 
 # Run JLF to map DKT labels onto the single-subject templates
