@@ -8,7 +8,7 @@ ENV ANTs_VERSION 0.0.1
 ############################
 
 RUN mkdir /data/input
-RUN mkdir /data/input/antssst
+#RUN mkdir /data/input/antssst
 RUN mkdir /data/input/fmriprep
 RUN mkdir /data/output
 RUN mkdir /scripts
@@ -19,5 +19,5 @@ COPY OASIS_PAC /data/input/OASIS_PAC
 
 RUN chmod +x /scripts/*
 
-# Set the entrypoint
-ENTRYPOINT /scripts/run.sh
+# Set the entrypoint using exec format
+ENTRYPOINT ["/scripts/run.sh"]
