@@ -1,9 +1,90 @@
 #!/bin/bash
 
-export ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1
-
 InDir=/data/input
-OutDir=/data/output
+OutDir=/data/output 
+
+###############################################################################
+#######################      0. Parse Cmd Line Args      ######################
+###############################################################################
+VERSION=0.0.9
+
+usage () {
+    cat <<- HELP_MESSAGE
+      usage:  $0 [--help] [--version] 
+                 [--all-labels] [--seed <RANDOM SEED>] 
+                SES [SES2 ...]
+      
+      positional arguments:
+      SES |               Session label
+
+      optional arguments:
+      -h  | --help        Print this message and exit.
+      -v  | --version     Print version and exit.
+      -s  | --seed        Random seed for ANTs registration. 
+      -l  | --all-labels  Use non-cortical/whitematter labels. Default: False.
+
+HELP_MESSAGE
+}
+
+# Display usage message if no args are given
+if [[ $# -eq 0 ]] ; then
+  usage
+  exit 1
+fi
+
+# Parse cmd line options
+PARAMS=""
+while (( "$#" )); do
+  case "$1" in
+    -h | --help)
+        usage
+        exit 0
+      ;;
+    -v | --version)
+        echo $VERSION
+        exit 0
+      ;;
+    -s | --seed)
+      if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
+        seed=$2
+        shift 2
+      else
+        echo "$0: Error: Argument for $1 is missing" >&2
+        exit 1
+      fi
+      ;;
+    -l | --all-labels)
+      useAllLabels=1
+      shift
+      ;;
+    -*|--*=) # unsupported flags
+      echo "$0: Error: Unsupported flag $1" >&2
+      exit 1
+      ;;
+    *) # parse positional arguments
+      PARAMS="$PARAMS $1"
+      shift
+      ;;
+  esac
+done
+
+# Set positional arguments (session list) in their proper place
+eval set -- "$PARAMS"
+
+# Check that at least two sessions were provided.
+if [[ $# -lt 2 ]]; then
+  echo "Error: Please provide at least two session labels for single subject template creation."
+  exit 1
+fi 
+
+# Default: set random seed to 1.
+if [[ -z "$seed" ]]; then
+  seed=1
+fi
+
+# Set env vars for ANTs
+export ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1
+export ANTS_RANDOM_SEED=$seed 
 
 ###############################################################################
 ########  1. Get session list, find relevant files, make output dir.   ########
@@ -87,11 +168,11 @@ antsBrainExtraction.sh -d 3 -a ${SST} \
   -o ${OutDir}/${sub}_
 
 # Locate atlases and labels
-atlast1w=`find ${InDir}/mindboggleVsBrainCOLOR_Atlases/mindboggleHeads/* -name "OASIS-TRT*.nii.gz"`;
+atlasT1w=`find ${InDir}/mindboggleVsBrainCOLOR_Atlases/mindboggleHeads/* -name "OASIS-TRT*.nii.gz"`;
 
 # Create atlases part of antsJFL call
 atlas_args=""
-for atlas in ${atlast1w}; do
+for atlas in ${atlasT1w}; do
 
   # Find corresponding label image
   label=`basename ${atlas}`
