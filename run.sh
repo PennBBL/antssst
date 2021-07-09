@@ -3,15 +3,20 @@
 InDir=/data/input
 OutDir=/data/output 
 
+# Make tmp dir
+tmpdir="${OutDir}/tmp"
+mkdir ${tmpdir}
+
 ###############################################################################
 #######################      0. Parse Cmd Line Args      ######################
 ###############################################################################
-VERSION=0.0.9
+VERSION=0.1.0
 
 usage () {
     cat <<- HELP_MESSAGE
       usage:  $0 [--help] [--version] 
-                 [--all-labels] [--seed <RANDOM SEED>] 
+                [--jlf] [--all-labels] 
+                [--seed <RANDOM SEED>] 
                 SES [SES2 ...]
       
       positional arguments:
@@ -19,18 +24,13 @@ usage () {
 
       optional arguments:
       -h  | --help        Print this message and exit.
-      -v  | --version     Print version and exit.
+      -j  | --jlf         Run JFL on the SST. (Default: False)
+      -l  | --all-labels  Use non-cortical/whitematter labels for JLF. (Default: False.)
       -s  | --seed        Random seed for ANTs registration. 
-      -l  | --all-labels  Use non-cortical/whitematter labels. Default: False.
+      -v  | --version     Print version and exit.
 
 HELP_MESSAGE
 }
-
-# Display usage message if no args are given
-if [[ $# -eq 0 ]] ; then
-  usage
-  exit 1
-fi
 
 # Parse cmd line options
 PARAMS=""
@@ -52,6 +52,10 @@ while (( "$#" )); do
         echo "$0: Error: Argument for $1 is missing" >&2
         exit 1
       fi
+      ;;
+    -j | --jlf)
+      runJLF=1
+      shift
       ;;
     -l | --all-labels)
       useAllLabels=1
@@ -87,7 +91,7 @@ export ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1
 export ANTS_RANDOM_SEED=$seed 
 
 ###############################################################################
-########  1. Get session list, find relevant files, make output dir.   ########
+########  1. Preprocessing. N4 bias correction, padding, and scaling.  ########
 ###############################################################################
 
 # List of session is passed in through container creation call.
@@ -95,138 +99,79 @@ sessions="$@"
 
 # Get subject label.
 ses=`echo ${sessions} | cut -d ' ' -f 1`
-sub=`find ${InDir}/${ases}/ -name "*${ses}.html" | cut -d '/' -f 5 | cut -d '_' -f 1`
+sub=`find ${InDir}/fmriprep/${ses}/ -name "*${ses}.html" | cut -d '/' -f 5 | cut -d '_' -f 1`
 
-# Get T1w image per session from input dir.
-t1wimages=""
-for ses in $sessions; do
-  t1wimage=`find ${InDir}/${ses}/anat -name "${sub}_${ses}_desc-preproc_T1w.nii.gz"`;
-  t1wimages="${t1wimages} ${t1wimage}";
-done
-
-# Make output directory per session.
+# For each session, preprocess the T1w image and brain mask.
 for ses in ${sessions}; do
+
+  # Make output directory per session.
   mkdir ${OutDir}/${ses};
-done
 
-###############################################################################
-#####################  2. Pad and scale each T1w image.   #####################
-###############################################################################
-
-######## Pad and scale the T1w images ########
-for image in ${t1wimages}; do
-
-  ses=`echo $image | cut -d "/" -f 4`;
-  imagename=`echo $image | cut -d "/" -f 6`;
-  imagename=$(echo "$imagename" | sed "s/T1w/T1w_padscale/");
+  # Copy T1w image to session output dir.
+  t1w="${OutDir}/${ses}/${sub}_${ses}_T1w.nii.gz"
+  find ${InDir}/fmriprep/${ses}/anat -name "${sub}_${ses}_desc-preproc_T1w.nii.gz" \
+    -exec cp {} "${t1w}" \;
   
-  # Mask
-  #mask=${InDir}/${ses}/anat/${sub}_${ses}_desc-brain_mask.nii.gz;
-  #ImageMath 3 ${OutDir}/${ses}/${imagename} m ${image} ${mask};
+  # Copy T1w brain mask to session output dir.
+  mask="${OutDir}/${ses}/${sub}_${ses}_brain_mask.nii.gz"
+  find ${InDir}/fmriprep/${ses}/anat -name "${sub}_${ses}_desc-brain_mask.nii.gz" \
+    -exec cp {} ${OutDir}/${ses} \;
 
-  # Pad
-  ImageMath 3 ${OutDir}/${ses}/${imagename} PadImage ${image} 25;
+  # Dialate and smooth brain mask from fMRIPrep to use as weight image in N4
+  n4weight=`echo ${mask} | sed "s/mask/mask-DS/"`
+  ImageMath 3 ${n4weight} MD ${mask} 5     # Dialate x5
+  SmoothImage 3 ${n4weight} 3 ${n4weight}   # Smooth x3
 
-  # Scale
-  ImageMath 3 ${OutDir}/${ses}/${imagename} Normalize ${OutDir}/${ses}/${imagename} 1;
+  # Threshold T1w image to get mask of non-zero intensities for N4.
+  n4mask="${tmpdir}/${sub}_${ses}_N4Mask.nii.gz"
+  ThresholdImage 3 ${t1w} ${n4mask} 0.01 Inf
 
-done
+  # N4 Bias correction with weighted with mask. 
+  # TODO: parameter tuning??
+  # t1w_n4=`echo ${t1w} | sed "s/T1w/T1w-N4/"` 
+  N4BiasFieldCorrection -d 3 \
+    -b [ 200 ] \
+    -c [ 100x100x100x100 ] \
+    --input-image ${t1w} \
+    --mask-image ${n4mask} \
+    --weight-image ${n4weight} \
+    --output ${t1w} 
+  
+  # Pad and scale the N4-corrected T1w image.
+  ImageMath 3 ${t1w} PadImage ${t1w} 25;    # Pad x 25 voxels
+  ImageMath 3 ${t1w} Normalize ${t1w} 1;    # Normalize to [0, 1]
 
-t1wpsm=""
-for ses in $sessions; do
-  t1wimage=`find ${OutDir}/${ses} -name "${sub}_${ses}_desc-preproc_T1w_padscale.nii.gz"`;
-  t1wpsm="${t1wpsm} ${t1wimage}";
 done
 
 ###############################################################################
-###############  3. Single Subject Template (SST) Construction  ###############
+###############  2. Single Subject Template (SST) Construction  ###############
 ###############################################################################
 
 # Generate csv of t1w images to pass to template construction script.
-for image in ${t1wpsm}; do echo "${image}" >> ${OutDir}/tmp_subjlist.csv ; done
+find $OutDir/ -name "*T1w.nii.gz" >> ${tmpdir}/t1w_list.csv
 
-# Run single subject template construction.
-# Images used are bias-field corrected, but not skull-stripped.
-/scripts/antsMultivariateTemplateConstruction.sh -d 3 -o "${OutDir}/" -n 0 \
-  -m 40x60x30 -i 5 -c 0 -z ${image} ${OutDir}/tmp_subjlist.csv
+# Construct the single subject template.
+  # -d 3 --> 3 dimensions
+  # -n 0 --> don't do N4 bias field correction
+  # -m   --> max-iterations in each registration
+  # -i 5 --> iteration limit
+  # -c 0 --> use localhost
+  # -z   --> initial template/target volume/starting point
+/scripts/antsMultivariateTemplateConstruction.sh -d 3 \
+  -o "${OutDir}/" \
+  -n 0 \
+  -m 40x60x30 \
+  -i 5 \
+  -c 0 \
+  -z ${t1w} \ # TODO: test without -z reference? or with MNI ref temp?
+  ${tmpdir}/t1w_list.csv
 
-## NEW! TODO: Test out running JLF on SST's! Then convert to session space.
-# i.e. instead of JLF on GT then transforming back to session space.
-###############################################################################
-####################  4. Run joint label fusion on SSTs.        ###############
-####################     Transform labels to Native T1w space.  ###############
-###############################################################################
-
-SST=${OutDir}/${sub}_template0.nii.gz
-BrainExtractionTemplate=${InDir}/OASIS_PAC/T_template0.nii.gz
-BrainExtractionProbMask=${InDir}/OASIS_PAC/T_template0_BrainCerebellumProbabilityMask.nii.gz
-
-# Skull-strip the SST
-antsBrainExtraction.sh -d 3 -a ${SST} \
-  -e ${BrainExtractionTemplate} \
-  -m ${BrainExtractionProbMask} \
-  -o ${OutDir}/${sub}_
-
-# Construct atlas arguments for call to antsJointLabelFusion.sh
-atlas_args=""
-
-# Loop through each atlas dir in OASIS dir
-find ${InDir}/OASIS-TRT-20_volumes/OASIS-TRT* -type d | while read atlas_dir; do
-  # Get T1w brain
-  brain="${atlas_dir}/t1weighted_brain.nii.gz"
-  
-  # Get corresponding labels if using all labels (cort, wm, non-cort).
-  if [[ ${useAllLabels} ]]; then
-    labels=${atlas_dir}/labels.DKT31.manual+aseg.nii.gz;
-  
-  # Get corresponding labels if using only cortical labels. (Default)
-  else
-    labels=${atlas_dir}/labels.DKT31.manual.nii.gz;
-  fi
-
-  # Append current atlas and label to argument string
-  atlas_args=${atlas_args}"-g ${brain} -l ${labels} ";
-done
-
-# Run JLF to map DKT labels onto the single-subject templates
-antsJointLabelFusion.sh -d 3 -t ${SST} \
-  -o ${OutDir}/${sub}_malf -c 2 -j 4 -k 1 -q 1 \
-  -x ${OutDir}/${sub}_BrainExtractionMask.nii.gz \
-  -p ${OutDir}/malfPosteriors%04d.nii.gz ${atlas_args}
-
-# 5/16/2021: 
-# Warp DKT labels from the SST space to Native T1w space
-RefImg=${OutDir}/${ses}/${sub}_${ses}_desc-preproc_T1w_padscale.nii.gz
-SSTLabels=${OutDir}/${sub}_malfLabels.nii.gz
-SST_to_Native_warp=`find ${OutDir}/${ses} -name "*padscale*InverseWarp.nii.gz"`
-Native_to_SST_affine=`find ${OutDir}/${ses} -name "*Affine.txt"`
-
-# Transform labels from group template to t1w space
-# QUESTION: How do you pick -n interpolation type?
-# Multilabel for labeled image to maintain integer labels!!
-antsApplyTransforms \
-  -d 3 -e 0 -n Multilabel \
-  -i ${SSTLabels} \
-  -o [${OutDir}/${ses}/${sub}_${ses}_DKT.nii.gz, 0] \
-  -r ${RefImg} \
-  -t [${Native_to_SST_affine}, 1] \
-  -t ${SST_to_Native_warp} 
-
-# To finish DKT labeling, in antslongct use cortical thickness mask to generate
-# DKTIntersection image.
-
-###############################################################################
-#######################  5. Rename files and cleanup.  ########################
-###############################################################################
+# Clean-up: 
 
 # Move session-level output into individual session output dirs.
 for ses in ${sessions} ; do
-  mv ${OutDir}/*_${ses}_* ${OutDir}/${ses};
+  mv ${OutDir}/*_${ses}_* ${OutDir}/${ses}/;
 done
-
-# Move jobscripts into jobs sub dir
-mkdir ${OutDir}/jobs
-mv ${OutDir}/job*.sh ${OutDir}/jobs
 
 # Rename SST and transform files to include subject label.
 mv ${OutDir}/template0.nii.gz ${OutDir}/${sub}_template0.nii.gz
@@ -234,10 +179,106 @@ mv ${OutDir}/templatewarplog.txt ${OutDir}/${sub}_templatewarplog.txt
 mv ${OutDir}/template0Affine.txt ${OutDir}/${sub}_template0Affine.txt
 mv ${OutDir}/template0warp.nii.gz ${OutDir}/${sub}_template0warp.nii.gz
 
-# Make subdir for joint label fusion output
-mkdir ${OutDir}/malf
-mv ${OutDir}/malfPost* ${OutDir}/malf
-mv ${OutDir}/*malf*.txt ${OutDir}/malf
-
 # Remove tmp files.
-rm ${OutDir}/tmp_subjlist.csv
+rm -rf ${tmpdir}
+
+###############################################################################
+#############   3. (Optional) Run joint label fusion on SSTs.       ###########
+#############      Transform labels to Native T1w space.            ###########
+###############################################################################
+
+SST=${OutDir}/${sub}_template0.nii.gz
+BrainExtractionTemplate=${InDir}/OASIS_PAC/T_template0.nii.gz
+BrainExtractionProbMask=${InDir}/OASIS_PAC/T_template0_BrainCerebellumProbabilityMask.nii.gz
+
+# Skull-strip the SST to get brain mask.
+antsBrainExtraction.sh -d 3 -a ${SST} \
+  -e ${BrainExtractionTemplate} \
+  -m ${BrainExtractionProbMask} \
+  -o ${OutDir}/${sub}_
+
+# Optionally, run JLF on the SST.
+if [[ ${runJLF} ]]; then
+
+  # Construct atlas arguments for call to antsJointLabelFusion.sh
+  # by looping through each atlas dir in OASIS dir to get brain and labels.
+  atlas_args=""
+
+  # If using mindboggleVsBrainCOLOR atlases...
+  if [[ ${useMindboggle} ]]; then
+
+    # Loop thru mindboggle brains to build arglist of atlas brains + labels
+    while read brain; do
+      labels=`basename ${brain} | sed "s/.nii.gz/_DKT31.nii.gz/"`
+      labels=${InDir}/mindboggleVsBrainCOLOR_Atlases/mindboggleLabels/${labels}
+
+      # Append current atlas and label to argument string
+      atlas_args=${atlas_args}"-g ${brain} -l ${labels} "
+    done <<< $(find ${InDir}/mindboggleVsBrainCOLOR_Atlases/mindboggleHeads -name "OASIS-TRT*")
+
+  # Else if using OASIS-TRT-20_volumes...
+  else
+
+    # Loop thru OASIS atlas dirs to build arglist of atlas brains + labels
+    while read atlas_dir; do
+
+      # Get T1w brain
+      brain="${atlas_dir}/t1weighted_brain.nii.gz"
+      
+      if [[ ${useAllLabels} ]]; then
+        # Get corresponding labels if using all labels (cort, wm, non-cort).
+        labels=${atlas_dir}/labels.DKT31.manual+aseg.nii.gz;
+      else
+        # Get corresponding labels if using only cortical labels (default).
+        labels=${atlas_dir}/labels.DKT31.manual.nii.gz;
+      fi
+
+      # Append current atlas and label to argument string
+      atlas_args=${atlas_args}"-g ${brain} -l ${labels} ";
+    done <<< $(find ${InDir}/OASIS-TRT-20_volumes/OASIS-TRT* -type d)
+
+  done
+
+  # Run JLF to map DKT labels onto the single-subject templates.
+  antsJointLabelFusion.sh -d 3 -t ${SST} \
+    -o ${OutDir}/${sub}_malf -c 2 -j 4 -k 1 -q 1 \
+    -x ${OutDir}/${sub}_BrainExtractionMask.nii.gz \
+    -p ${OutDir}/malfPosteriors%04d.nii.gz ${atlas_args}
+
+  # For each session, warp DKT labels from the SST space to Native T1w space.
+  for ses in ${sessions}; do
+
+    SSTLabels=${OutDir}/${sub}_malfLabels.nii.gz
+    SST_to_Native_warp=`find ${OutDir}/${ses} -name "*InverseWarp.nii.gz"`
+    Native_to_SST_affine=`find ${OutDir}/${ses} -name "*Affine.txt"`
+
+    # Transform labels from SST to T1w space
+    # Multilabel interpolation for labeled image to maintain integer labels!!
+    antsApplyTransforms \
+      -d 3 -e 0 -n Multilabel \
+      -i ${SSTLabels} \
+      -o [${OutDir}/${ses}/${sub}_${ses}_DKT.nii.gz, 0] \
+      -r ${t1w} \
+      -t [${Native_to_SST_affine}, 1] \
+      -t ${SST_to_Native_warp} 
+  done
+
+fi
+
+# NOTE: Finish DKT labeling in antslongct by using 
+# cortical thickness mask to generate DKTIntersection image.
+
+# JLF cleanup:
+if [[ ${runJLF} ]]; then
+
+  # Move jobscripts into jobs sub dir
+  mkdir ${OutDir}/jobs
+  mv ${OutDir}/job*.sh ${OutDir}/jobs
+
+  # Make subdir for joint label fusion output
+  mkdir ${OutDir}/malf
+  mv ${OutDir}/malfPost* ${OutDir}/malf
+  mv ${OutDir}/*malf*.txt ${OutDir}/malf
+
+fi
+
