@@ -205,16 +205,16 @@ if [[ ${runJLF} ]]; then
   atlas_args=""
 
   # If using mindboggleVsBrainCOLOR atlases...
-  if [[ ${useMindboggle} ]]; then
+  if [[ -d "${InDir}/atlases/mindboggleHeads" ]]; then
 
     # Loop thru mindboggle brains to build arglist of atlas brains + labels
     while read brain; do
       labels=`basename ${brain} | sed "s/.nii.gz/_DKT31.nii.gz/"`
-      labels=${InDir}/mindboggleVsBrainCOLOR_Atlases/mindboggleLabels/${labels}
+      labels=${InDir}/atlases/mindboggleLabels/${labels}
 
       # Append current atlas and label to argument string
       atlas_args=${atlas_args}"-g ${brain} -l ${labels} "
-    done <<< $(find ${InDir}/mindboggleVsBrainCOLOR_Atlases/mindboggleHeads -name "OASIS-TRT*")
+    done <<< $(find ${InDir}/atlases/mindboggleHeads -name "OASIS-TRT*")
 
   # Else if using OASIS-TRT-20_volumes...
   else
@@ -235,7 +235,7 @@ if [[ ${runJLF} ]]; then
 
       # Append current atlas and label to argument string
       atlas_args=${atlas_args}"-g ${brain} -l ${labels} ";
-    done <<< $(find ${InDir}/OASIS-TRT-20_volumes/OASIS-TRT* -type d)
+    done <<< $(find ${InDir}/atlases/OASIS-TRT* -type d)
 
   done
 
