@@ -113,9 +113,9 @@ for ses in ${sessions}; do
     -exec cp {} "${t1w}" \;
   
   # Copy T1w brain mask to session output dir.
-  mask="${OutDir}/${ses}/${sub}_${ses}_brain_mask.nii.gz"
+  mask="${OutDir}/${ses}/${sub}_${ses}_brain-mask.nii.gz"
   find ${InDir}/fmriprep/${ses}/anat -name "${sub}_${ses}_desc-brain_mask.nii.gz" \
-    -exec cp {} ${OutDir}/${ses} \;
+    -exec cp {} "${mask}" \;
 
   # Dialate and smooth brain mask from fMRIPrep to use as weight image in N4
   n4weight=`echo ${mask} | sed "s/mask/mask-DS/"`
@@ -239,16 +239,23 @@ if [[ ${runJLF} ]]; then
 
   done
 
+  # NOTE: 7/13 --> renaming malf to DKT-Labels, DKT-Intensity
   # Run JLF to map DKT labels onto the single-subject templates.
-  antsJointLabelFusion.sh -d 3 -t ${SST} \
-    -o ${OutDir}/${sub}_malf -c 2 -j 4 -k 1 -q 1 \
+  antsJointLabelFusion.sh -d 3 \
+    -c 2 \  # use localhost
+    -j 8 \  # use 8 cpu cores
+    -k 1 \  # keep all files?
+    -t ${SST} \
+    -o ${OutDir}/${sub}_malf \
     -x ${OutDir}/${sub}_BrainExtractionMask.nii.gz \
-    -p ${OutDir}/malfPosteriors%04d.nii.gz ${atlas_args}
+    -p ${OutDir}/malfPosteriors%04d.nii.gz \
+    ${atlas_args} 
 
   # For each session, warp DKT labels from the SST space to Native T1w space.
   for ses in ${sessions}; do
 
-    SSTLabels=${OutDir}/${sub}_malfLabels.nii.gz
+    SST_labels=${OutDir}/${sub}_malfLabels.nii.gz
+    t1w_labels=${OutDir}/${ses}/${sub}_${ses}_DKT.nii.gz
     SST_to_Native_warp=`find ${OutDir}/${ses} -name "*InverseWarp.nii.gz"`
     Native_to_SST_affine=`find ${OutDir}/${ses} -name "*Affine.txt"`
 
@@ -256,9 +263,9 @@ if [[ ${runJLF} ]]; then
     # Multilabel interpolation for labeled image to maintain integer labels!!
     antsApplyTransforms \
       -d 3 -e 0 -n Multilabel \
-      -i ${SSTLabels} \
-      -o [${OutDir}/${ses}/${sub}_${ses}_DKT.nii.gz, 0] \
-      -r ${t1w} \
+      -i ${SST_labels} \
+      -o [${t1w_labels}, 0] \
+      -r ${t1w} \ 
       -t [${Native_to_SST_affine}, 1] \
       -t ${SST_to_Native_warp} 
   done
@@ -271,13 +278,16 @@ fi
 # JLF cleanup:
 if [[ ${runJLF} ]]; then
 
+  # Rename DKT-labeled SST to match name of DKT-labeled T1w img.
+  mv ${SST_labels} ${OutDir}/${sub}_DKT.nii.gz
+
   # Move jobscripts into jobs sub dir
   mkdir ${OutDir}/jobs
-  mv ${OutDir}/job*.sh ${OutDir}/jobs
+  mv ${OutDir}/job* ${OutDir}/jobs
 
   # Make subdir for joint label fusion output
   mkdir ${OutDir}/malf
-  mv ${OutDir}/malfPost* ${OutDir}/malf
+  mv ${OutDir}/malfPosterior* ${OutDir}/malf
   mv ${OutDir}/*malf*.txt ${OutDir}/malf
 
 fi
