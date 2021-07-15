@@ -99,7 +99,7 @@ sessions="$@"
 
 # Get subject label.
 ses=`echo ${sessions} | cut -d ' ' -f 1`
-sub=`find ${InDir}/fmriprep/${ses}/ -name "*${ses}.html" | cut -d '/' -f 5 | cut -d '_' -f 1`
+sub=`find ${InDir}/fmriprep/ -name "*${ses}.html" -exec basename {} \; | cut -d _ -f 1`
 
 # For each session, preprocess the T1w image and brain mask.
 for ses in ${sessions}; do
@@ -163,11 +163,11 @@ find $OutDir/ -name "*T1w.nii.gz" >> ${tmpdir}/t1w_list.csv
   -m 40x60x30 \
   -i 5 \
   -c 0 \
-  -z ${t1w} \ # TODO: test without -z reference? or with MNI ref temp?
+  -z ${t1w} \
   ${tmpdir}/t1w_list.csv
+# TODO: test without -z reference? or with MNI ref temp?
 
 # Clean-up: 
-
 # Move session-level output into individual session output dirs.
 for ses in ${sessions} ; do
   mv ${OutDir}/*_${ses}_* ${OutDir}/${ses}/;
@@ -242,9 +242,9 @@ if [[ ${runJLF} ]]; then
   # NOTE: 7/13 --> renaming malf to DKT-Labels, DKT-Intensity
   # Run JLF to map DKT labels onto the single-subject templates.
   antsJointLabelFusion.sh -d 3 \
-    -c 2 \  # use localhost
-    -j 8 \  # use 8 cpu cores
-    -k 1 \  # keep all files?
+    -c 2 \  
+    -j 8 \  
+    -k 1 \  
     -t ${SST} \
     -o ${OutDir}/${sub}_malf \
     -x ${OutDir}/${sub}_BrainExtractionMask.nii.gz \
