@@ -237,7 +237,7 @@ if [[ ${runJLF} ]]; then
       atlas_args=${atlas_args}"-g ${brain} -l ${labels} ";
     done <<< $(find ${InDir}/atlases/OASIS-TRT* -type d)
 
-  done
+  fi
 
   # NOTE: 7/13 --> renaming malf to DKT-Labels, DKT-Intensity
   # Run JLF to map DKT labels onto the single-subject templates.
