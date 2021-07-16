@@ -241,10 +241,8 @@ if [[ ${runJLF} ]]; then
 
   # NOTE: 7/13 --> renaming malf to DKT-Labels, DKT-Intensity
   # Run JLF to map DKT labels onto the single-subject templates.
-  antsJointLabelFusion.sh -d 3 \
-    -c 2 \  
-    -j 8 \  
-    -k 1 \  
+  antsJointLabelFusion.sh \
+    -d 3 -c 2 -j 8 -k 1 \
     -t ${SST} \
     -o ${OutDir}/${sub}_malf \
     -x ${OutDir}/${sub}_BrainExtractionMask.nii.gz \
@@ -283,7 +281,7 @@ if [[ ${runJLF} ]]; then
 
   # Move jobscripts into jobs sub dir
   mkdir ${OutDir}/jobs
-  mv ${OutDir}/job* ${OutDir}/jobs
+  mv ${OutDir}/job_* ${OutDir}/jobs
 
   # Make subdir for joint label fusion output
   mkdir ${OutDir}/malf
