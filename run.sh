@@ -263,7 +263,7 @@ if [[ ${runJLF} ]]; then
       -d 3 -e 0 -n Multilabel \
       -i ${SST_labels} \
       -o [${t1w_labels}, 0] \
-      -r ${t1w} \ 
+      -r ${t1w} \
       -t [${Native_to_SST_affine}, 1] \
       -t ${SST_to_Native_warp} 
   done
