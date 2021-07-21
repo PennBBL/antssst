@@ -5,7 +5,7 @@ OutDir=/data/output
 
 # Make tmp dir
 tmpdir="${OutDir}/tmp"
-mkdir ${tmpdir}
+mkdir -p ${tmpdir}
 
 ###############################################################################
 #######################      0. Parse Cmd Line Args      ######################
@@ -105,7 +105,7 @@ sub=`find ${InDir}/fmriprep/ -name "*${ses}.html" -exec basename {} \; | cut -d 
 for ses in ${sessions}; do
 
   # Make output directory per session.
-  mkdir ${OutDir}/${ses};
+  mkdir -p ${OutDir}/${ses};
 
   # Copy T1w image to session output dir.
   t1w="${OutDir}/${ses}/${sub}_${ses}_T1w.nii.gz"
@@ -197,6 +197,10 @@ antsBrainExtraction.sh -d 3 -a ${SST} \
   -m ${BrainExtractionProbMask} \
   -o ${OutDir}/${sub}_
 
+# Move jobscripts into jobs sub dir
+  mkdir -p ${OutDir}/jobs
+  mv ${OutDir}/job_* ${OutDir}/jobs
+
 # Optionally, run JLF on the SST.
 if [[ ${runJLF} ]]; then
 
@@ -279,13 +283,10 @@ if [[ ${runJLF} ]]; then
   # Rename DKT-labeled SST to match name of DKT-labeled T1w img.
   mv ${SST_labels} ${OutDir}/${sub}_DKT.nii.gz
 
-  # Move jobscripts into jobs sub dir
-  mkdir ${OutDir}/jobs
-  mv ${OutDir}/job_* ${OutDir}/jobs
-
   # Make subdir for joint label fusion output
-  mkdir ${OutDir}/malf
+  mkdir -p ${OutDir}/malf
   mv ${OutDir}/malfPosterior* ${OutDir}/malf
+  mv ${OutDir}/*_malfOASIS-* ${OutDir}/malf
   mv ${OutDir}/*malf*.txt ${OutDir}/malf
 
 fi
