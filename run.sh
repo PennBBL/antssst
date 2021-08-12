@@ -170,7 +170,19 @@ find $OutDir/ -name "*T1w.nii.gz" >> ${tmpdir}/t1w_list.csv
 # Clean-up: 
 # Move session-level output into individual session output dirs.
 for ses in ${sessions} ; do
-  mv ${OutDir}/*_${ses}_* ${OutDir}/${ses}/;
+  
+  # Rename native-to-sst inverse warp and move to session dir
+  mv ${OutDir}/*${ses}*InverseWarp.nii.gz "${OutDir}/${ses}/${sub}_${ses}_toSST_InverseWarp.nii.gz"
+  
+  # Rename native-to-sst inverse warp and move to session dir
+  mv ${OutDir}/*${ses}*Warp.nii.gz "${OutDir}/${ses}/${sub}_${ses}_toSST_Warp.nii.gz"
+  
+  # Rename native-to-sst inverse warp and move to session dir
+  mv ${OutDir}/*${ses}*Affine.txt "${OutDir}/${ses}/${sub}_${ses}_toSST_Affine.txt"
+  
+  # Rename T1w images warped to SST and move to session dir
+  mv ${OutDir}/*${ses}*WarpedToTemplate.nii.gz "${OutDir}/${ses}/${sub}_${ses}_WarpedToSST.nii.gz"
+
 done
 
 # Rename SST and transform files to include subject label.
@@ -243,20 +255,25 @@ if [[ ${runJLF} ]]; then
 
   fi
 
-  # NOTE: 7/13 --> renaming malf to DKT-Labels, DKT-Intensity
+  # Make output directory for malf
+  mkdir ${OutDir}/malf
+
   # Run JLF to map DKT labels onto the single-subject templates.
   antsJointLabelFusion.sh \
     -d 3 -c 2 -j 8 -k 1 \
     -t ${SST} \
-    -o ${OutDir}/${sub}_malf \
-    -x ${OutDir}/${sub}_BrainExtractionMask.nii.gz \
-    -p ${OutDir}/malfPosteriors%04d.nii.gz \
+    -o ${OutDir}/malf/${sub}_malf \
+    -x ${OutDir}/malf/${sub}_BrainExtractionMask.nii.gz \
+    -p ${OutDir}/malf/malfPosteriors%04d.nii.gz \
     ${atlas_args} 
+
+  # Move DKT-labeled SST to main output dir and rename to match other DKT-labeled images.
+  SST_labels=${OutDir}/${sub}_DKT.nii.gz
+  mv ${OutDir}/malf/${sub}_malfLabels.nii.gz ${SST_labels}
 
   # For each session, warp DKT labels from the SST space to Native T1w space.
   for ses in ${sessions}; do
 
-    SST_labels=${OutDir}/${sub}_malfLabels.nii.gz
     t1w_labels=${OutDir}/${ses}/${sub}_${ses}_DKT.nii.gz
     SST_to_Native_warp=`find ${OutDir}/${ses} -name "*InverseWarp.nii.gz"`
     Native_to_SST_affine=`find ${OutDir}/${ses} -name "*Affine.txt"`
@@ -277,17 +294,17 @@ fi
 # NOTE: Finish DKT labeling in antslongct by using 
 # cortical thickness mask to generate DKTIntersection image.
 
-# JLF cleanup:
-if [[ ${runJLF} ]]; then
+# # JLF cleanup:
+# if [[ ${runJLF} ]]; then
 
-  # Rename DKT-labeled SST to match name of DKT-labeled T1w img.
-  mv ${SST_labels} ${OutDir}/${sub}_DKT.nii.gz
+#   # Rename DKT-labeled SST to match name of DKT-labeled T1w img.
+#   mv ${SST_labels} ${OutDir}/${sub}_DKT.nii.gz
 
-  # Make subdir for joint label fusion output
-  mkdir -p ${OutDir}/malf
-  mv ${OutDir}/malfPosterior* ${OutDir}/malf
-  mv ${OutDir}/*_malfOASIS-* ${OutDir}/malf
-  mv ${OutDir}/*malf*.txt ${OutDir}/malf
+#   # Make subdir for joint label fusion output
+#   mkdir -p ${OutDir}/malf
+#   mv ${OutDir}/malfPosterior* ${OutDir}/malf
+#   mv ${OutDir}/*_malfOASIS-* ${OutDir}/malf
+#   mv ${OutDir}/*malf*.txt ${OutDir}/malf
 
-fi
+# fi
 
