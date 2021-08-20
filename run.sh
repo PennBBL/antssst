@@ -8,7 +8,7 @@ tmpdir="${OutDir}/tmp"
 mkdir -p ${tmpdir}
 
 ###############################################################################
-#######################      0. Parse Cmd Line Args      ######################
+########################      Parse Cmd Line Args      ########################
 ###############################################################################
 VERSION=0.1.0
 
@@ -31,6 +31,12 @@ usage () {
 
 HELP_MESSAGE
 }
+
+# Set default cmd linge args
+seed=1
+runJLF=""
+useAllLabels=""
+
 
 # Parse cmd line options
 PARAMS=""
@@ -81,18 +87,45 @@ if [[ $# -lt 2 ]]; then
   exit 1
 fi 
 
-# Default: set random seed to 1.
-if [[ -z "$seed" ]]; then
-  seed=1
-fi
-
 # Set env vars for ANTs
 export ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1
 export ANTS_RANDOM_SEED=$seed 
 
 ###############################################################################
+######################      Set Up Error Handling!      #######################
+###############################################################################
+
+set -euo pipefail
+trap 'exit' EXIT
+trap 'control_c' SIGINT
+
+exit(){
+  err=$?
+  if [ $err -eq 0 ]; then
+    cleanup
+    echo "$0: Program finished successfully!"
+  else
+    echo "$0: ${PROGNAME:-}: ${1:-"Exiting with error code $err"}" 1>&2
+    cleanup
+  fi
+}
+
+cleanup() {
+  echo -e "\nRunning cleanup ..."
+  rm -rf $tmpdir
+  echo "Done."
+}
+
+control_c() 
+{
+  echo -en "\n\n*** User pressed CTRL + C ***\n\n"
+}
+
+###############################################################################
 ########  1. Preprocessing. N4 bias correction, padding, and scaling.  ########
 ###############################################################################
+echo -e "\nPreprocessing the T1w images....\n"
+PROGNAME="preprocessing"
 
 # List of session is passed in through container creation call.
 sessions="$@"
@@ -112,6 +145,7 @@ for ses in ${sessions}; do
   find ${InDir}/fmriprep/${ses}/anat -name "${sub}_${ses}_desc-preproc_T1w.nii.gz" \
     -exec cp {} "${t1w}" \;
   
+  # TODO: try with ANTsBrainExtraction??
   # Copy T1w brain mask to session output dir.
   mask="${OutDir}/${ses}/${sub}_${ses}_brain-mask.nii.gz"
   find ${InDir}/fmriprep/${ses}/anat -name "${sub}_${ses}_desc-brain_mask.nii.gz" \
@@ -127,6 +161,7 @@ for ses in ${sessions}; do
   ThresholdImage 3 ${t1w} ${n4mask} 0.01 Inf
 
   # N4 Bias correction with weighted with mask. 
+  PROGNAME="N4BiasFieldCorrection"
   # TODO: parameter tuning??
   # t1w_n4=`echo ${t1w} | sed "s/T1w/T1w-N4/"` 
   N4BiasFieldCorrection -d 3 \
@@ -146,6 +181,8 @@ done
 ###############################################################################
 ###############  2. Single Subject Template (SST) Construction  ###############
 ###############################################################################
+echo -e "\nRunning single subject template construction...\n"
+PROGNAME="antsMultivariateTemplateConstruction"
 
 # Generate csv of t1w images to pass to template construction script.
 find $OutDir/ -name "*T1w.nii.gz" >> ${tmpdir}/t1w_list.csv
@@ -191,13 +228,12 @@ mv ${OutDir}/templatewarplog.txt ${OutDir}/${sub}_templatewarplog.txt
 mv ${OutDir}/template0Affine.txt ${OutDir}/${sub}_template0Affine.txt
 mv ${OutDir}/template0warp.nii.gz ${OutDir}/${sub}_template0warp.nii.gz
 
-# Remove tmp files.
-rm -rf ${tmpdir}
-
 ###############################################################################
 #############   3. (Optional) Run joint label fusion on SSTs.       ###########
 #############      Transform labels to Native T1w space.            ###########
 ###############################################################################
+echo -e "\nRunning brain extraction on the SST...\n"
+PROGNAME="antsBrainExtraction"
 
 SST=${OutDir}/${sub}_template0.nii.gz
 BrainExtractionTemplate=${InDir}/OASIS_PAC/T_template0.nii.gz
@@ -215,6 +251,8 @@ antsBrainExtraction.sh -d 3 -a ${SST} \
 
 # Optionally, run JLF on the SST.
 if [[ ${runJLF} ]]; then
+  echo -e "\nRunning joint label fusion...\n"
+  PROGNAME="antsJointLabelFusion"
 
   # Construct atlas arguments for call to antsJointLabelFusion.sh
   # by looping through each atlas dir in OASIS dir to get brain and labels.
@@ -271,6 +309,8 @@ if [[ ${runJLF} ]]; then
   SST_labels=${OutDir}/${sub}_DKT.nii.gz
   mv ${OutDir}/malf/${sub}_malfLabels.nii.gz ${SST_labels}
 
+  echo -e "\nTransforming labels from SST to native T1w...\n"
+  PROGNAME="antsApplyTransforms"
   # For each session, warp DKT labels from the SST space to Native T1w space.
   for ses in ${sessions}; do
 
