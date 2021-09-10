@@ -8,7 +8,6 @@ ENV ANTs_VERSION=0.0.1
 
 RUN mkdir /data/input
 RUN mkdir /data/output
-RUN mkdir /data/input/fmriprep
 RUN mkdir /data/input/atlases
 RUN mkdir /scripts
 
