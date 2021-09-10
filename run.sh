@@ -220,16 +220,16 @@ for ses in ${sessions} ; do
   SesDir=${SubDir}/sessions/${ses}
   
   # Rename native-to-sst inverse warp and move to session dir
-  mv ${SesDir}/*${ses}*InverseWarp.nii.gz "${SesDir}/${ses}/${sub}_${ses}_toSST_InverseWarp.nii.gz"
+  mv ${SesDir}/*${ses}*InverseWarp.nii.gz "${SesDir}/${sub}_${ses}_toSST_InverseWarp.nii.gz"
   
-  # Rename native-to-sst inverse warp and move to session dir
-  mv ${SesDir}/*${ses}*Warp.nii.gz "${SesDir}/${ses}/${sub}_${ses}_toSST_Warp.nii.gz"
+  # Rename native-to-sst warp and move to session dir
+  mv ${SesDir}/*${ses}_T1w*Warp.nii.gz "${SesDir}/${sub}_${ses}_toSST_Warp.nii.gz"
   
-  # Rename native-to-sst inverse warp and move to session dir
-  mv ${SesDir}/*${ses}*Affine.txt "${SesDir}/${ses}/${sub}_${ses}_toSST_Affine.txt"
+  # Rename native-to-sst affine and move to session dir
+  mv ${SesDir}/*${ses}*Affine.txt "${SesDir}/${sub}_${ses}_toSST_Affine.txt"
   
   # Rename T1w images warped to SST and move to session dir
-  mv ${SesDir}/*${ses}*WarpedToTemplate.nii.gz "${SesDir}/${ses}/${sub}_${ses}_WarpedToSST.nii.gz"
+  mv ${SesDir}/*${ses}*WarpedToTemplate.nii.gz "${SesDir}/${sub}_${ses}_WarpedToSST.nii.gz"
 
 done
 
