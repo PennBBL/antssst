@@ -1,16 +1,14 @@
 #!/bin/bash
 
-InDir=/data/input
-OutDir=/data/output 
+# ANTsSST:    Single-Subject Template Creation
+# Maintainer: Katja Zoner
+# Updated:    09/10/2021
 
-# Make tmp dir
-tmpdir="${OutDir}/tmp"
-mkdir -p ${tmpdir}
+VERSION=0.1.0
 
 ###############################################################################
 ########################      Parse Cmd Line Args      ########################
 ###############################################################################
-VERSION=0.1.0
 
 usage () {
     cat <<- HELP_MESSAGE
@@ -32,11 +30,10 @@ usage () {
 HELP_MESSAGE
 }
 
-# Set default cmd linge args
+# Set default cmd line args
 seed=1
 runJLF=""
 useAllLabels=""
-
 
 # Parse cmd line options
 PARAMS=""
@@ -95,6 +92,10 @@ export ANTS_RANDOM_SEED=$seed
 ######################      Set Up Error Handling!      #######################
 ###############################################################################
 
+# Make tmp dir
+tmpdir="/data/output/tmp"
+mkdir -p ${tmpdir}
+
 set -euo pipefail
 trap 'exit' EXIT
 trap 'control_c' SIGINT
@@ -127,6 +128,9 @@ control_c()
 echo -e "\nPreprocessing the T1w images....\n"
 PROGNAME="preprocessing"
 
+InDir=/data/input
+SubDir=/data/output 
+
 # List of session is passed in through container creation call.
 sessions="$@"
 
@@ -134,25 +138,29 @@ sessions="$@"
 ses=`echo ${sessions} | cut -d ' ' -f 1`
 sub=`find ${InDir}/fmriprep/ -name "*${ses}.html" -exec basename {} \; | cut -d _ -f 1`
 
+#SubDir=/data/output/subjects/${sub}
+#mkdir -p ${SubDir}
+
 # For each session, preprocess the T1w image and brain mask.
 for ses in ${sessions}; do
 
-  # Make output directory per session.
-  mkdir -p ${OutDir}/${ses};
+  # Make output sub-directory per session.
+  SesDir=${SubDir}/sessions/${ses}
+  mkdir -p ${SesDir};
 
   # Copy T1w image to session output dir.
-  t1w="${OutDir}/${ses}/${sub}_${ses}_T1w.nii.gz"
+  t1w="${SesDir}/${sub}_${ses}_T1w.nii.gz"
   find ${InDir}/fmriprep/${ses}/anat -name "${sub}_${ses}_desc-preproc_T1w.nii.gz" \
     -exec cp {} "${t1w}" \;
   
   # TODO: try with ANTsBrainExtraction??
   # Copy T1w brain mask to session output dir.
-  mask="${OutDir}/${ses}/${sub}_${ses}_brain-mask.nii.gz"
+  mask="${SesDir}/${sub}_${ses}_brain-mask.nii.gz"
   find ${InDir}/fmriprep/${ses}/anat -name "${sub}_${ses}_desc-brain_mask.nii.gz" \
     -exec cp {} "${mask}" \;
 
   # Dialate and smooth brain mask from fMRIPrep to use as weight image in N4
-  n4weight=`echo ${mask} | sed "s/mask/mask-DS/"`
+  n4weight=`echo ${mask} | sed "s/mask/mask-DS/"` #TODO: should this be in tmp?
   ImageMath 3 ${n4weight} MD ${mask} 5     # Dialate x5
   SmoothImage 3 ${n4weight} 3 ${n4weight}   # Smooth x3
 
@@ -185,7 +193,7 @@ echo -e "\nRunning single subject template construction...\n"
 PROGNAME="antsMultivariateTemplateConstruction"
 
 # Generate csv of t1w images to pass to template construction script.
-find $OutDir/ -name "*T1w.nii.gz" >> ${tmpdir}/t1w_list.csv
+find $SubDir/ -name "*T1w.nii.gz" >> ${tmpdir}/t1w_list.csv
 
 # Construct the single subject template.
   # -d 3 --> 3 dimensions
@@ -195,7 +203,7 @@ find $OutDir/ -name "*T1w.nii.gz" >> ${tmpdir}/t1w_list.csv
   # -c 0 --> use localhost
   # -z   --> initial template/target volume/starting point
 /scripts/antsMultivariateTemplateConstruction.sh -d 3 \
-  -o "${OutDir}/" \
+  -o "${SubDir}/" \
   -n 0 \
   -m 40x60x30 \
   -i 5 \
@@ -208,25 +216,28 @@ find $OutDir/ -name "*T1w.nii.gz" >> ${tmpdir}/t1w_list.csv
 # Move session-level output into individual session output dirs.
 for ses in ${sessions} ; do
   
-  # Rename native-to-sst inverse warp and move to session dir
-  mv ${OutDir}/*${ses}*InverseWarp.nii.gz "${OutDir}/${ses}/${sub}_${ses}_toSST_InverseWarp.nii.gz"
+  # Reset session output dir
+  SesDir=${SubDir}/sessions/${ses}
   
   # Rename native-to-sst inverse warp and move to session dir
-  mv ${OutDir}/*${ses}*Warp.nii.gz "${OutDir}/${ses}/${sub}_${ses}_toSST_Warp.nii.gz"
+  mv ${SesDir}/*${ses}*InverseWarp.nii.gz "${SesDir}/${ses}/${sub}_${ses}_toSST_InverseWarp.nii.gz"
   
   # Rename native-to-sst inverse warp and move to session dir
-  mv ${OutDir}/*${ses}*Affine.txt "${OutDir}/${ses}/${sub}_${ses}_toSST_Affine.txt"
+  mv ${SesDir}/*${ses}*Warp.nii.gz "${SesDir}/${ses}/${sub}_${ses}_toSST_Warp.nii.gz"
+  
+  # Rename native-to-sst inverse warp and move to session dir
+  mv ${SesDir}/*${ses}*Affine.txt "${SesDir}/${ses}/${sub}_${ses}_toSST_Affine.txt"
   
   # Rename T1w images warped to SST and move to session dir
-  mv ${OutDir}/*${ses}*WarpedToTemplate.nii.gz "${OutDir}/${ses}/${sub}_${ses}_WarpedToSST.nii.gz"
+  mv ${SesDir}/*${ses}*WarpedToTemplate.nii.gz "${SesDir}/${ses}/${sub}_${ses}_WarpedToSST.nii.gz"
 
 done
 
 # Rename SST and transform files to include subject label.
-mv ${OutDir}/template0.nii.gz ${OutDir}/${sub}_template0.nii.gz
-mv ${OutDir}/templatewarplog.txt ${OutDir}/${sub}_templatewarplog.txt
-mv ${OutDir}/template0Affine.txt ${OutDir}/${sub}_template0Affine.txt
-mv ${OutDir}/template0warp.nii.gz ${OutDir}/${sub}_template0warp.nii.gz
+mv ${SubDir}/template0.nii.gz ${SubDir}/${sub}_template0.nii.gz
+mv ${SubDir}/templatewarplog.txt ${SubDir}/${sub}_templatewarplog.txt
+mv ${SubDir}/template0Affine.txt ${SubDir}/${sub}_template0Affine.txt
+mv ${SubDir}/template0warp.nii.gz ${SubDir}/${sub}_template0warp.nii.gz
 
 ###############################################################################
 #############   3. (Optional) Run joint label fusion on SSTs.       ###########
@@ -235,7 +246,7 @@ mv ${OutDir}/template0warp.nii.gz ${OutDir}/${sub}_template0warp.nii.gz
 echo -e "\nRunning brain extraction on the SST...\n"
 PROGNAME="antsBrainExtraction"
 
-SST=${OutDir}/${sub}_template0.nii.gz
+SST=${SubDir}/${sub}_template0.nii.gz
 BrainExtractionTemplate=${InDir}/OASIS_PAC/T_template0.nii.gz
 BrainExtractionProbMask=${InDir}/OASIS_PAC/T_template0_BrainCerebellumProbabilityMask.nii.gz
 
@@ -243,11 +254,11 @@ BrainExtractionProbMask=${InDir}/OASIS_PAC/T_template0_BrainCerebellumProbabilit
 antsBrainExtraction.sh -d 3 -a ${SST} \
   -e ${BrainExtractionTemplate} \
   -m ${BrainExtractionProbMask} \
-  -o ${OutDir}/${sub}_
+  -o ${SubDir}/${sub}_
 
 # Move jobscripts into jobs sub dir
-  mkdir -p ${OutDir}/jobs
-  mv ${OutDir}/job_* ${OutDir}/jobs
+  mkdir -p ${SubDir}/jobs
+  mv ${SubDir}/job_* ${SubDir}/jobs
 
 # Optionally, run JLF on the SST.
 if [[ ${runJLF} ]]; then
@@ -294,29 +305,32 @@ if [[ ${runJLF} ]]; then
   fi
 
   # Make output directory for malf
-  mkdir ${OutDir}/malf
+  mkdir ${SubDir}/malf
 
   # Run JLF to map DKT labels onto the single-subject templates.
   antsJointLabelFusion.sh \
     -d 3 -c 2 -j 8 -k 1 \
     -t ${SST} \
-    -o ${OutDir}/malf/${sub}_malf \
-    -x ${OutDir}/malf/${sub}_BrainExtractionMask.nii.gz \
-    -p ${OutDir}/malf/malfPosteriors%04d.nii.gz \
+    -o ${SubDir}/malf/${sub}_malf \
+    -x ${SubDir}/malf/${sub}_BrainExtractionMask.nii.gz \
+    -p ${SubDir}/malf/malfPosteriors%04d.nii.gz \
     ${atlas_args} 
 
   # Move DKT-labeled SST to main output dir and rename to match other DKT-labeled images.
-  SST_labels=${OutDir}/${sub}_DKT.nii.gz
-  mv ${OutDir}/malf/${sub}_malfLabels.nii.gz ${SST_labels}
+  SST_labels=${SubDir}/${sub}_DKT.nii.gz
+  mv ${SubDir}/malf/${sub}_malfLabels.nii.gz ${SST_labels}
 
   echo -e "\nTransforming labels from SST to native T1w...\n"
   PROGNAME="antsApplyTransforms"
   # For each session, warp DKT labels from the SST space to Native T1w space.
   for ses in ${sessions}; do
+    
+    # Reset session output dir
+    SesDir=${SubDir}/sessions/${ses}
 
-    t1w_labels=${OutDir}/${ses}/${sub}_${ses}_DKT.nii.gz
-    SST_to_Native_warp=`find ${OutDir}/${ses} -name "*InverseWarp.nii.gz"`
-    Native_to_SST_affine=`find ${OutDir}/${ses} -name "*Affine.txt"`
+    t1w_labels=${SesDir}/${sub}_${ses}_DKT.nii.gz
+    SST_to_Native_warp=`find ${SesDir} -name "*InverseWarp.nii.gz"`
+    Native_to_SST_affine=`find ${SesDir} -name "*Affine.txt"`
 
     # Transform labels from SST to T1w space
     # Multilabel interpolation for labeled image to maintain integer labels!!
