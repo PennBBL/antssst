@@ -320,28 +320,28 @@ if [[ ${runJLF} ]]; then
   SST_labels=${SubDir}/${sub}_DKT.nii.gz
   mv ${SubDir}/malf/${sub}_malfLabels.nii.gz ${SST_labels}
 
-  echo -e "\nTransforming labels from SST to native T1w...\n"
-  PROGNAME="antsApplyTransforms"
-  # For each session, warp DKT labels from the SST space to Native T1w space.
-  for ses in ${sessions}; do
+  # echo -e "\nTransforming labels from SST to native T1w...\n"
+  # PROGNAME="antsApplyTransforms"
+  # # For each session, warp DKT labels from the SST space to Native T1w space.
+  # for ses in ${sessions}; do
     
-    # Reset session output dir
-    SesDir=${SubDir}/sessions/${ses}
+  #   # Reset session output dir
+  #   SesDir=${SubDir}/sessions/${ses}
 
-    t1w_labels=${SesDir}/${sub}_${ses}_DKT.nii.gz
-    SST_to_Native_warp=`find ${SesDir} -name "*InverseWarp.nii.gz"`
-    Native_to_SST_affine=`find ${SesDir} -name "*Affine.txt"`
+  #   t1w_labels=${SesDir}/${sub}_${ses}_DKT.nii.gz
+  #   SST_to_Native_warp=`find ${SesDir} -name "*InverseWarp.nii.gz"`
+  #   Native_to_SST_affine=`find ${SesDir} -name "*Affine.txt"`
 
-    # Transform labels from SST to T1w space
-    # Multilabel interpolation for labeled image to maintain integer labels!!
-    antsApplyTransforms \
-      -d 3 -e 0 -n Multilabel \
-      -i ${SST_labels} \
-      -o [${t1w_labels}, 0] \
-      -r ${t1w} \
-      -t [${Native_to_SST_affine}, 1] \
-      -t ${SST_to_Native_warp} 
-  done
+  #   # Transform labels from SST to T1w space
+  #   # Multilabel interpolation for labeled image to maintain integer labels!!
+  #   antsApplyTransforms \
+  #     -d 3 -e 0 -n Multilabel \
+  #     -i ${SST_labels} \
+  #     -o [${t1w_labels}, 0] \
+  #     -r ${t1w} \
+  #     -t [${Native_to_SST_affine}, 1] \
+  #     -t ${SST_to_Native_warp} 
+  # done
 
 fi
 
