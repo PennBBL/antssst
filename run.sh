@@ -18,7 +18,7 @@ usage () {
                 SES [SES2 ...]
       
       positional arguments:
-      SES |               Session label
+      SES |                   Session label
 
       optional arguments:
       -h  | --help            Print this message and exit.
@@ -27,7 +27,7 @@ usage () {
                                 1: preproccessing, 
                                 2: SST creation,
                                 3: brain extraction, 
-                                4: JLF
+                                4: joint label fusion
                               Use multiple times to select multiple steps. (e.g. -m 2 -m 3)
       -l  | --all-labels      Use non-cortical/whitematter labels for JLF. (Default: False.)
       -s  | --seed            Random seed for ANTs registration. 
@@ -211,7 +211,6 @@ run_brain_extraction() {
 
 ###############################################################################
 #############   4. (Optional) Run joint label fusion on SSTs.       ###########
-#############      Transform labels to Native T1w space.            ###########
 ###############################################################################
 run_jlf() {
   log_progress "BEGIN: Running joint label fusion."
@@ -324,18 +323,13 @@ while (( "$#" )); do
         usage
         exit 0
       ;;
-    -v | --version)
-        echo $VERSION
-        exit 0
+    -j | --jlf)
+      runJLF=1
+      shift
       ;;
-    -s | --seed)
-      if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
-        seed=$2
-        shift 2
-      else
-        echo "$0: Error: Argument for $1 is missing" >&2
-        exit 1
-      fi
+    -l | --all-labels)
+      useAllLabels=1
+      shift
       ;;
     -m | --manual-step)
       if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
@@ -362,13 +356,18 @@ while (( "$#" )); do
         exit 1
       fi
       ;;
-    -j | --jlf)
-      runJLF=1
-      shift
+    -s | --seed)
+      if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
+        seed=$2
+        shift 2
+      else
+        echo "$0: Error: Argument for $1 is missing" >&2
+        exit 1
+      fi
       ;;
-    -l | --all-labels)
-      useAllLabels=1
-      shift
+    -v | --version)
+        echo $VERSION
+        exit 0
       ;;
     -*|--*=) # unsupported flags
       echo "$0: Error: Unsupported flag $1" >&2
