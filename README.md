@@ -20,7 +20,7 @@ After Docker is installed, pull the ANTsSST image by running the following comma
 Typically, Docker is used on local machines and not clusters because it requires
 root access. If you want to run the container on a cluster, follow the Singularity instructions.
 
-### Running ANTsSST
+### Running ANTsSST via Docker Image
 Here is an example:
 ```
 docker run -it --rm \
@@ -33,7 +33,7 @@ docker run -it --rm \
 To the container, you must:
 1. Bind the subject's fMRIPrep output directory (`/Users/kzoner/BBL/projects/ANTS/data/fmriprep/sub-93811/`) to the input directory in the container (`/data/input/fmriprep`).
 
-2. Bind the subject's sub-directory within the overarching NTsLongitudinal output directory (`/Users/kzoner/BBL/projects/ANTS/data/ANTsLongitudinal/subjects/sub-93811`) to the output directory in the container (`/data/output`).
+2. Bind the subject's sub-directory within the overarching ANTsLongitudinal output directory (`/Users/kzoner/BBL/projects/ANTS/data/ANTsLongitudinal/subjects/sub-93811`) to the output directory in the container (`/data/output`).
 
 3. Specify the Docker image and version. Run `docker images` to see if you have the correct version pulled.
 
@@ -50,14 +50,14 @@ After Singularity is installed, pull the ANTsSST image by running the following 
 Note that Singularity does not work on Macs, and will almost surely have to be
 installed by a system administrator on your institution's computing cluster.
 
-### Running ANTsSST
+### Running ANTsSST via Singularity Image
 Here is an example:
 ```
 singularity run --cleanenv --writable-tmpfs --containall \
   -B ~/ants_pipelines/data/fmriprep/sub-93811:/data/input/fmriprep \
   -B ~/ants_pipelines/data/ANTsLongitudinal/subjects/sub-93811:/data/output \
   -B ~/ants_pipelines/data/mindboggleVsBrainCOLOR_Atlases:/data/input/atlases \
-  ~/ants_pipelines/images/antssst_0.1.0.sif ses-PNC1 ses-PNC2 --seed 1 --jlf 
+  ~/ants_pipelines/images/antssst_0.1.0.sif ses-PNC1 ses-PNC2 --seed 1 
 
 ```
 In your call to Singularity you should:
