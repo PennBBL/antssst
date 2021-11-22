@@ -1,23 +1,27 @@
 #!/bin/bash
 
-export LOGS_DIR=/home/kzoner/logs/ants/antssst-0.1.0
+export LOGS_DIR=/home/kzoner/logs/ExtraLong/ANTsSST-0.1.0
 mkdir -p ${LOGS_DIR}
 
-jsDir=~/ants_pipelines/scripts/jobscripts/antssst-0.1.0
+scripts="/project/ExtraLong/scripts/process/datafreeze-2021/ANTsLongitudinal"
+jsDir=${scripts}/jobscripts
 mkdir -p ${jsDir}
 
-fmriprep_dir=/project/ExtraLong/data/freesurferCrossSectional/fmriprep
-antslong_dir=~/ants_pipelines/data/ANTsLongitudinal
-atlas_dir=~/ants_pipelines/data/mindboggleVsBrainCOLOR_Atlases
+data="/project/ExtraLong/data/datafreeze-2021/"
+fmriprep_dir=${data}/fmriprep/
+antslong_dir=${data}/ANTsLongitudinal
+atlas_dir=${data}/../mindboggleVsBrainCOLOR_Atlases
 
-gt_subs_csv=~/ants_pipelines/subjects_for_gt.csv
-exclude_csv=/project/ExtraLong/data/qualityAssessment/antssstExclude.csv
+# gt_subs_csv=~/ants_pipelines/subjects_for_gt.csv
+# exclude_csv=/project/ExtraLong/data/qualityAssessment/antssstExclude.csv
+exclude_csv="/project/ExtraLong/data/datafreeze-2021/QC/exclusion_datafreeze-2021_cutoff-212.csv"
 
-subList=$(cat ${exclude_csv} | grep FALSE | cut -d , -f 1 | uniq)
+subList=$(cat ${exclude_csv} | grep False | cut -d , -f 1 | uniq)
+echo "ANTsSST will be run on $(echo $subList | wc -w) subjects"
 
 for subject in $subList; do
 
-  sessions=$(cat ${exclude_csv} | grep ${subject} | grep FALSE | cut -d \" -f 2 | sed "s/^/ses-/" | tr "\n" " ")
+  sessions=$(cat ${exclude_csv} | grep ${subject} | grep False | cut -d , -f 2 | sed "s/^/ses-/" | tr "\n" " ")
   subject=sub-${subject}
   echo SUBJECT: $subject
   echo SESSIONS: $sessions
@@ -34,7 +38,7 @@ for subject in $subList; do
 			-B ${fmriprep_dir}/${subject}:/data/input/fmriprep \\
 			-B ${out_dir}:/data/output \\
 			-B ${atlas_dir}:/data/input/atlases \\
-			~/ants_pipelines/images/antssst_0.1.0.sif --seed 1 ${sessions}
+			/project/ExtraLong/images/antssst_0.1.0.sif --seed 1 ${sessions}
 	
 	JOBSCRIPT
 
