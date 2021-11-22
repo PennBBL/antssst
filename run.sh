@@ -85,13 +85,13 @@ run_preprocessing() {
 
 		# Copy T1w image to session output dir.
 		t1w="${SesDir}/${sub}_${ses}_T1w.nii.gz"
-		find ${InDir}/fmriprep/${ses}/anat -name "${sub}_${ses}_desc-preproc_T1w.nii.gz" \
+		find ${InDir}/fmriprep/${ses}/anat -name "${sub}_${ses}_*desc-preproc_T1w.nii.gz" -not -name "*space*" \
 			-exec cp {} "${t1w}" \;
 
 		# TODO: try with ANTsBrainExtraction??
 		# Copy T1w brain mask to session output dir.
 		mask="${SesDir}/${sub}_${ses}_brain-mask.nii.gz"
-		find ${InDir}/fmriprep/${ses}/anat -name "${sub}_${ses}_desc-brain_mask.nii.gz" \
+		find ${InDir}/fmriprep/${ses}/anat -name "${sub}_${ses}_*desc-brain_mask.nii.gz" -not -name "*space*" \
 			-exec cp {} "${mask}" \;
 
 		# Dialate and smooth brain mask from fMRIPrep to use as weight image in N4
@@ -391,7 +391,7 @@ sessions="$@"
 
 # Get subject label.
 ses=$(echo ${sessions} | cut -d ' ' -f 1)
-sub=$(find ${InDir}/fmriprep/ -name "*${ses}.html" -exec basename {} \; | cut -d _ -f 1)
+sub=$(find ${InDir}/fmriprep/ -name "*${ses}_*desc-preproc_T1w.nii.gz" -not -name "*space*" -exec basename {} \; | cut -d _ -f 1)
 
 # Run preprocessing steps.
 if [[ ${runPreproc} ]] || [[ ${runAll} ]]; then
