@@ -135,10 +135,10 @@ run_construct_sst() {
 	PROGNAME="antsMultivariateTemplateConstruction"
 
 	# Generate csv of t1w images to pass to template construction script.
-	find $SubDir/ -name "*T1w.nii.gz" >>${tmpdir}/t1w_list.csv
+	find $SubDir/ -name "*T1w.nii.gz" >> ${tmpdir}/t1w_list.csv
 
 	# TODO: How should we pick a ref template?
-	t1w_ref="${SesDir}/${sub}_${ses}_T1w.nii.gz"
+	t1w_ref=`cat ${tmpdir}/t1w_list.csv | head -1`
 
 	# Construct the single subject template.
 	# -d 3 --> 3 dimensions
