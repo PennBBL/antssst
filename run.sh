@@ -30,6 +30,7 @@ usage() {
 		                                4: joint label fusion
 		                              Use multiple times to select multiple steps. (e.g. -m 2 -m 3)
 		      -l  | --all-labels      Use non-cortical/whitematter labels for JLF. (Default: False.)
+		      -d  | --use-deep	      Use deep-learning for brain extraction
 		      -s  | --seed            Random seed for ANTs registration. 
 		      -v  | --version         Print version and exit.
 
@@ -89,10 +90,14 @@ run_preprocessing() {
 			-exec cp {} "${t1w}" \;
 
 		# TODO: try with ANTsBrainExtraction??
-		# Copy T1w brain mask to session output dir.
+		# Use pyNet to get brain mask
 		mask="${SesDir}/${sub}_${ses}_brain-mask.nii.gz"
-		find ${InDir}/fmriprep/${ses}/anat -name "${sub}_${ses}_*desc-brain_mask.nii.gz" -not -name "*space*" \
-			-exec cp {} "${mask}" \;
+		brain="${SesDir}/${sub}_${ses}_brain.nii.gz"
+
+		#/opt/venv/bin/python3 /opt/bin/do_brain_extraction.py -i ${t1w} -o ${brain} -m ${mask}
+		/freesurfer/mri_synthstrip -i ${t1w} -o ${brain} -m ${mask}
+		CopyImageHeaderInformation ${t1w} ${brain} ${brain} 1 1 1 		
+		CopyImageHeaderInformation ${t1w} ${mask} ${mask} 1 1 1
 
 		# Dialate and smooth brain mask from fMRIPrep to use as weight image in N4
 		n4weight="${tmpdir}/${sub}_${ses}_brain-mask-DS.nii.gz"
@@ -148,11 +153,12 @@ run_construct_sst() {
 	# -c 0 --> use localhost
 	# -z   --> initial template/target volume/starting point
 	/scripts/antsMultivariateTemplateConstruction.sh -d 3 \
-		-o "${SubDir}/" \
+		-o "${SubDir}/${sub}_" \
 		-n 0 \
 		-m 40x60x30 \
 		-i 5 \
 		-c 0 \
+		-A 2 \
 		-z ${t1w_ref} \
 		${tmpdir}/t1w_list.csv
 	# TODO: test without -z reference? or with MNI ref temp?
@@ -169,20 +175,22 @@ run_construct_sst() {
 
 		# Rename native-to-sst warp and move to session dir
 		mv ${SubDir}/*${ses}_T1w*Warp.nii.gz "${SesDir}/${sub}_${ses}_toSST_Warp.nii.gz"
-
+		
 		# Rename native-to-sst affine and move to session dir
-		mv ${SubDir}/*${ses}*Affine.txt "${SesDir}/${sub}_${ses}_toSST_Affine.txt"
+		mv ${SubDir}/*${ses}*Affine.txt "${SesDir}/${sub}_${ses}_toSST_Affine.txt"	
 
 		# Rename T1w images warped to SST and move to session dir
 		mv ${SubDir}/*${ses}*WarpedToTemplate.nii.gz "${SesDir}/${sub}_${ses}_WarpedToSST.nii.gz"
 
 	done
-
+	
 	# Rename SST and transform files to include subject label.
-	mv ${SubDir}/template0.nii.gz ${SubDir}/${sub}_template0.nii.gz
-	mv ${SubDir}/templatewarplog.txt ${SubDir}/${sub}_templatewarplog.txt
-	mv ${SubDir}/template0Affine.txt ${SubDir}/${sub}_template0Affine.txt
-	mv ${SubDir}/template0warp.nii.gz ${SubDir}/${sub}_template0warp.nii.gz
+	#mv ${SubDir}/template0.nii.gz ${SubDir}/${sub}_template0.nii.gz
+	#mv ${SubDir}/templatewarplog.txt ${SubDir}/${sub}_templatewarplog.txt
+	#mv ${SubDir}/template0Affine.txt ${SubDir}/${sub}_template0Affine.txt
+	#mv ${SubDir}/template0warp.nii.gz ${SubDir}/${sub}_template0warp.nii.gz
+	
+
 
 	# Move jobscripts into jobs sub dir
 	mkdir -p ${SubDir}/jobs
@@ -199,16 +207,24 @@ run_brain_extraction() {
 	log_progress "BEGIN: Running brain extraction on the SST."
 
 	SST=${SubDir}/${sub}_template0.nii.gz
-	BrainExtractionTemplate=${InDir}/OASIS_PAC/T_template0.nii.gz
-	BrainExtractionProbMask=${InDir}/OASIS_PAC/T_template0_BrainCerebellumProbabilityMask.nii.gz
+	
+	if [[ ${useDL} ]]; then
+		
+		/freesurfer/mri_synthstrip  -i ${SST} -o ${SubDir}/${sub}_BrainExtractionBrain.nii.gz -m ${SubDir}/${sub}_BrainExtractionMask.nii.gz
+		CopyImageHeaderInformation ${SST} ${SubDir}/${sub}_BrainExtractionBrain.nii.gz ${SubDir}/${sub}_BrainExtractionBrain.nii.gz 1 1 1
+                CopyImageHeaderInformation ${SST} ${SubDir}/${sub}_BrainExtractionMask.nii.gz ${SubDir}/${sub}_BrainExtractionMask.nii.gz 1 1 1
+	else
+		BrainExtractionTemplate=${InDir}/OASIS_PAC/T_template0.nii.gz
+		BrainExtractionProbMask=${InDir}/OASIS_PAC/T_template0_BrainCerebellumProbabilityMask.nii.gz
 
-	# Skull-strip the SST to get brain mask.
-	antsBrainExtraction.sh -d 3 -a ${SST} \
+		antsBrainExtraction.sh -d 3 -a ${SST} \
 		-e ${BrainExtractionTemplate} \
 		-m ${BrainExtractionProbMask} \
 		-o ${SubDir}/${sub}_
 
-	log_progress "END: Finished brain extraction on the SST."
+		log_progress "END: Finished brain extraction on the SST."
+	fi
+
 }
 
 ###############################################################################
@@ -260,20 +276,21 @@ run_jlf() {
 	fi
 
 	# Make output directory for malf
-	mkdir ${SubDir}/malf
+	mkdir -p ${SubDir}/malf
 
 	# Run JLF to map DKT labels onto the single-subject templates.
 	antsJointLabelFusion.sh \
 		-d 3 -c 2 -j 8 -k 1 \
 		-t ${SST} \
 		-o ${SubDir}/malf/${sub}_malf \
-		-x ${SubDir}/malf/${sub}_BrainExtractionMask.nii.gz \
+		-x ${SubDir}/${sub}_BrainExtractionMask.nii.gz \
 		-p ${SubDir}/malf/malfPosteriors%04d.nii.gz \
 		${atlas_args}
 
 	# Move DKT-labeled SST to main output dir and rename to match other DKT-labeled images.
 	SST_labels=${SubDir}/${sub}_DKT.nii.gz
 	mv ${SubDir}/malf/${sub}_malfLabels.nii.gz ${SST_labels}
+	rm -r ${SubDir}/malf	
 
 	log_progress "END: Finished JLF on the SST."
 }
@@ -290,6 +307,7 @@ runSST=""     # -m 2
 runBE=""      # -m 3
 runJLF=""     # -m 4 or --jlf
 useAllLabels=""
+useDL=""
 
 # Parse cmd line options
 PARAMS=""
@@ -305,6 +323,10 @@ while (("$#")); do
 		;;
 	-l | --all-labels)
 		useAllLabels=1
+		shift
+		;;
+	-d | --use-deep)
+		useDL=1
 		shift
 		;;
 	-m | --manual-step)
